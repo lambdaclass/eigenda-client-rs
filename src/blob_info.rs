@@ -117,10 +117,10 @@ impl BlobHeader {
             .map(|quorum| Token::Tuple(quorum.into_tokens()))
             .collect();
 
-        vec![
+        vec![Token::Tuple(vec![
             Token::Tuple(commitment),
             data_length,
-            Token::Array(blob_quorum_params),
+            Token::Array(blob_quorum_params)])
         ]
     }
 }

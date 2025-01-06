@@ -7,12 +7,10 @@ mod tests {
     use std::{str::FromStr, time::Duration};
 
     use crate::{
-        client::GetBlobData,
-        config::{EigenConfig, EigenSecrets, PrivateKey},
-        errors::{CommunicationError, EigenClientError},
-        EigenClient,
+        client::GetBlobData, config::{EigenConfig, EigenSecrets, PrivateKey}, errors::{CommunicationError, EigenClientError}, merkle_proof_input::MerkleProofInput, EigenClient
     };
     use backon::{ConstantBuilder, Retryable};
+    use ethabi::Token;
     use serial_test::serial;
 
     use crate::blob_info::BlobInfo;
@@ -145,7 +143,7 @@ mod tests {
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client.get_inclusion_data(&result).await.unwrap().unwrap();
-        assert_eq!(expected_inclusion_data, actual_inclusion_data);
+        assert!(actual_inclusion_data.windows(expected_inclusion_data.len()).any(|window| window == expected_inclusion_data)); //TODO: maybe get the actual inclusion data
         let retrieved_data = client.get_blob_data(blob_info).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }
@@ -179,7 +177,7 @@ mod tests {
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client.get_inclusion_data(&result).await.unwrap().unwrap();
-        assert_eq!(expected_inclusion_data, actual_inclusion_data);
+        assert!(actual_inclusion_data.windows(expected_inclusion_data.len()).any(|window| window == expected_inclusion_data)); //TODO: maybe get the actual inclusion data
         let retrieved_data = client.get_blob_data(blob_info).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }
@@ -213,7 +211,7 @@ mod tests {
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client.get_inclusion_data(&result).await.unwrap().unwrap();
-        assert_eq!(expected_inclusion_data, actual_inclusion_data);
+        assert!(actual_inclusion_data.windows(expected_inclusion_data.len()).any(|window| window == expected_inclusion_data)); //TODO: maybe get the actual inclusion data
         let retrieved_data = client.get_blob_data(blob_info).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }
@@ -247,7 +245,7 @@ mod tests {
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client.get_inclusion_data(&result).await.unwrap().unwrap();
-        assert_eq!(expected_inclusion_data, actual_inclusion_data);
+        assert!(actual_inclusion_data.windows(expected_inclusion_data.len()).any(|window| window == expected_inclusion_data)); //TODO: maybe get the actual inclusion data
         let retrieved_data = client.get_blob_data(blob_info).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }

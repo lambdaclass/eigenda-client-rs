@@ -1,3 +1,6 @@
+use ethabi::Token;
+use ethereum_types::U256;
+
 use crate::errors::ConversionError;
 
 use super::{
@@ -27,6 +30,15 @@ impl From<DisperserG1Commitment> for G1Commitment {
     }
 }
 
+impl G1Commitment {
+    fn into_tokens(&self) -> Vec<Token> {
+        let x = Token::Uint(U256::from_big_endian(&self.x));
+        let y = Token::Uint(U256::from_big_endian(&self.y));
+
+        vec![x, y]
+    }
+}
+
 /// Internal of BlobInfo
 /// Contains data related to the blob quorums
 #[derive(Debug, PartialEq, Clone)]
@@ -45,6 +57,24 @@ impl From<DisperserBlobQuorumParam> for BlobQuorumParam {
             confirmation_threshold_percentage: value.confirmation_threshold_percentage,
             chunk_length: value.chunk_length,
         }
+    }
+}
+
+impl BlobQuorumParam {
+    fn into_tokens(self) -> Vec<Token> {
+        let quorum_number = Token::Uint(U256::from(self.quorum_number));
+        let adversary_threshold_percentage =
+            Token::Uint(U256::from(self.adversary_threshold_percentage));
+        let confirmation_threshold_percentage =
+            Token::Uint(U256::from(self.confirmation_threshold_percentage));
+        let chunk_length = Token::Uint(U256::from(self.chunk_length));
+
+        vec![
+            quorum_number,
+            adversary_threshold_percentage,
+            confirmation_threshold_percentage,
+            chunk_length,
+        ]
     }
 }
 
@@ -74,6 +104,24 @@ impl TryFrom<DisperserBlobHeader> for BlobHeader {
             data_length: value.data_length,
             blob_quorum_params,
         })
+    }
+}
+
+impl BlobHeader {
+    pub fn into_tokens(self) -> Vec<Token> {
+        let commitment = self.commitment.into_tokens();
+        let data_length = Token::Uint(U256::from(self.data_length));
+        let blob_quorum_params = self
+            .blob_quorum_params
+            .into_iter()
+            .map(|quorum| Token::Tuple(quorum.into_tokens()))
+            .collect();
+
+        vec![
+            Token::Tuple(commitment),
+            data_length,
+            Token::Array(blob_quorum_params),
+        ]
     }
 }
 

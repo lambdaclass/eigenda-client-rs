@@ -7,6 +7,7 @@ pub(crate) mod eth_client;
 pub(crate) mod sdk;
 pub(crate) mod verifier;
 pub(crate) mod verifier_tests;
+pub(crate) mod merkle_proof_input;
 
 pub use self::client::EigenClient;
 

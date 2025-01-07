@@ -31,7 +31,7 @@ impl From<DisperserG1Commitment> for G1Commitment {
 }
 
 impl G1Commitment {
-    fn into_tokens(&self) -> Vec<Token> {
+    fn to_tokens(&self) -> Vec<Token> {
         let x = Token::Uint(U256::from_big_endian(&self.x));
         let y = Token::Uint(U256::from_big_endian(&self.y));
 
@@ -61,7 +61,7 @@ impl From<DisperserBlobQuorumParam> for BlobQuorumParam {
 }
 
 impl BlobQuorumParam {
-    fn into_tokens(self) -> Vec<Token> {
+    fn to_tokens(&self) -> Vec<Token> {
         let quorum_number = Token::Uint(U256::from(self.quorum_number));
         let adversary_threshold_percentage =
             Token::Uint(U256::from(self.adversary_threshold_percentage));
@@ -108,20 +108,21 @@ impl TryFrom<DisperserBlobHeader> for BlobHeader {
 }
 
 impl BlobHeader {
-    pub fn into_tokens(self) -> Vec<Token> {
-        let commitment = self.commitment.into_tokens();
+    pub fn to_tokens(&self) -> Vec<Token> {
+        let commitment = self.commitment.to_tokens();
         let data_length = Token::Uint(U256::from(self.data_length));
         let blob_quorum_params = self
             .blob_quorum_params
+            .clone()
             .into_iter()
-            .map(|quorum| Token::Tuple(quorum.into_tokens()))
+            .map(|quorum| Token::Tuple(quorum.to_tokens()))
             .collect();
 
         vec![Token::Tuple(vec![
             Token::Tuple(commitment),
             data_length,
-            Token::Array(blob_quorum_params)])
-        ]
+            Token::Array(blob_quorum_params),
+        ])]
     }
 }
 

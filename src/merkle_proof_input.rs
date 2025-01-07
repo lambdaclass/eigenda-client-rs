@@ -9,12 +9,12 @@ pub(crate) struct MerkleProofInput {
 }
 
 impl MerkleProofInput {
-    pub(crate) fn into_tokens(&self) -> Vec<Token> {
-        vec![ Token::Tuple( vec![
+    pub(crate) fn to_tokens(&self) -> Vec<Token> {
+        vec![Token::Tuple(vec![
             Token::FixedBytes(self.batch_root.to_vec()),
             Token::FixedBytes(self.leaf.to_vec()),
-            Token::Uint(self.index.clone()),
-            Token::Bytes(self.inclusion_proof.clone())])
-        ]
+            Token::Uint(self.index),
+            Token::Bytes(self.inclusion_proof.clone()),
+        ])]
     }
 }

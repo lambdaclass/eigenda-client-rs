@@ -17,7 +17,7 @@ use crate::{
         AuthenticatedReply, BlobAuthHeader,
     },
     errors::{
-        BlobStatusError, CommunicationError, ConfigError, ConversionError, EigenClientError,
+        BlobStatusError, CommunicationError, ConfigError, EigenClientError,
         VerificationError,
     },
     merkle_proof_input::MerkleProofInput,
@@ -241,18 +241,10 @@ impl RawEigenClient {
         let blob_info = self.get_commitment(request_id).await?;
         if let Some(blob_info) = blob_info {
             let inclusion_data = MerkleProofInput {
-                batch_root: blob_info
-                    .blob_verification_proof
-                    .batch_medatada
-                    .batch_header
-                    .batch_root
-                    .try_into()
-                    .map_err(|_| ConversionError::NotPresent("a".to_string()))?,
                 leaf: self.keccak256(
                     &self.keccak256(&ethabi::encode(&blob_info.blob_header.to_tokens())),
                 ),
-                index: blob_info.blob_verification_proof.blob_index.into(),
-                inclusion_proof: blob_info.blob_verification_proof.inclusion_proof,
+                blob_verification_proof: blob_info.blob_verification_proof,
             };
             Ok(Some(ethabi::encode(&inclusion_data.to_tokens())))
         } else {

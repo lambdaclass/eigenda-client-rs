@@ -1,20 +1,16 @@
 use ethabi::Token;
-use ethereum_types::U256;
+use crate::blob_info::BlobVerificationProof;
 
 pub(crate) struct MerkleProofInput {
-    pub(crate) batch_root: [u8; 32],
     pub(crate) leaf: [u8; 32],
-    pub(crate) index: U256,
-    pub(crate) inclusion_proof: Vec<u8>,
+    pub(crate) blob_verification_proof: BlobVerificationProof,
 }
 
 impl MerkleProofInput {
     pub(crate) fn to_tokens(&self) -> Vec<Token> {
         vec![Token::Tuple(vec![
-            Token::FixedBytes(self.batch_root.to_vec()),
             Token::FixedBytes(self.leaf.to_vec()),
-            Token::Uint(self.index),
-            Token::Bytes(self.inclusion_proof.clone()),
+            Token::Tuple(self.blob_verification_proof.to_tokens()),
         ])]
     }
 }

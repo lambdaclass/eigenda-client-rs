@@ -118,11 +118,11 @@ impl BlobHeader {
             .map(|quorum| Token::Tuple(quorum.to_tokens()))
             .collect();
 
-        vec![Token::Tuple(vec![
+        vec![
             Token::Tuple(commitment),
             data_length,
             Token::Array(blob_quorum_params),
-        ])]
+        ]
     }
 }
 
@@ -268,5 +268,14 @@ impl TryFrom<DisperserBlobInfo> for BlobInfo {
                     .ok_or(ConversionError::NotPresent("BlobInfo".to_string()))?,
             )?,
         })
+    }
+}
+
+impl BlobInfo {
+    pub fn to_tokens(&self) -> Vec<Token> {
+        let blob_header = Token::Tuple(self.blob_header.to_tokens());
+        let blob_verification_proof = Token::Tuple(self.blob_verification_proof.to_tokens());
+
+        vec![Token::Tuple(vec![blob_header, blob_verification_proof])]
     }
 }

@@ -20,7 +20,6 @@ use crate::{
         BlobStatusError, CommunicationError, ConfigError, EigenClientError,
         VerificationError,
     },
-    merkle_proof_input::MerkleProofInput,
 };
 use byteorder::{BigEndian, ByteOrder};
 use ethereum_types::Address;
@@ -240,13 +239,7 @@ impl RawEigenClient {
     ) -> Result<Option<Vec<u8>>, EigenClientError> {
         let blob_info = self.get_commitment(request_id).await?;
         if let Some(blob_info) = blob_info {
-            let inclusion_data = MerkleProofInput {
-                leaf: self.keccak256(
-                    &self.keccak256(&ethabi::encode(&blob_info.blob_header.to_tokens())),
-                ),
-                blob_verification_proof: blob_info.blob_verification_proof,
-            };
-            Ok(Some(ethabi::encode(&inclusion_data.to_tokens())))
+            Ok(Some(ethabi::encode(&blob_info.to_tokens())))
         } else {
             Ok(None)
         }

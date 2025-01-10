@@ -118,11 +118,11 @@ impl BlobHeader {
             .map(|quorum| Token::Tuple(quorum.to_tokens()))
             .collect();
 
-        vec![Token::Tuple(vec![
+        vec![
             Token::Tuple(commitment),
             data_length,
             Token::Array(blob_quorum_params),
-        ])]
+        ]
     }
 }
 
@@ -143,6 +143,22 @@ impl From<DisperserBatchHeader> for BatchHeader {
             quorum_signed_percentages: value.quorum_signed_percentages,
             reference_block_number: value.reference_block_number,
         }
+    }
+}
+
+impl BatchHeader {
+    pub fn to_tokens(&self) -> Vec<Token> {
+        let batch_root = Token::FixedBytes(self.batch_root.clone());
+        let quorum_numbers = Token::Bytes(self.quorum_numbers.clone());
+        let quorum_signed_percentages = Token::Bytes(self.quorum_signed_percentages.clone());
+        let reference_block_number = Token::Uint(U256::from(self.reference_block_number));
+
+        vec![
+            batch_root,
+            quorum_numbers,
+            quorum_signed_percentages,
+            reference_block_number,
+        ]
     }
 }
 
@@ -173,6 +189,20 @@ impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
     }
 }
 
+impl BatchMetadata {
+    pub fn to_tokens(&self) -> Vec<Token> {
+        let batch_header = Token::Tuple(self.batch_header.to_tokens());
+        let signatory_record_hash = Token::FixedBytes(self.signatory_record_hash.clone());
+        let confirmation_block_number = Token::Uint(U256::from(self.confirmation_block_number));
+
+        vec![
+            batch_header,
+            signatory_record_hash,
+            confirmation_block_number,
+        ]
+    }
+}
+
 /// Internal of BlobInfo
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobVerificationProof {
@@ -198,6 +228,24 @@ impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
     }
 }
 
+impl BlobVerificationProof {
+    pub fn to_tokens(&self) -> Vec<Token> {
+        let batch_id = Token::Uint(U256::from(self.batch_id));
+        let blob_index = Token::Uint(U256::from(self.blob_index));
+        let batch_medatada = Token::Tuple(self.batch_medatada.to_tokens());
+        let inclusion_proof = Token::Bytes(self.inclusion_proof.clone());
+        let quorum_indexes = Token::Bytes(self.quorum_indexes.clone());
+
+        vec![
+            batch_id,
+            blob_index,
+            batch_medatada,
+            inclusion_proof,
+            quorum_indexes,
+        ]
+    }
+}
+
 /// Data returned by the disperser when a blob is dispersed
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobInfo {
@@ -220,5 +268,17 @@ impl TryFrom<DisperserBlobInfo> for BlobInfo {
                     .ok_or(ConversionError::NotPresent("BlobInfo".to_string()))?,
             )?,
         })
+    }
+}
+
+impl BlobInfo {
+    pub fn to_tokens(&self) -> Vec<Token> {
+        let blob_header_tokens = self.blob_header.to_tokens();
+        let blob_verification_proof_tokens = self.blob_verification_proof.to_tokens();
+
+        vec![Token::Tuple(vec![
+            Token::Tuple(blob_header_tokens),
+            Token::Tuple(blob_verification_proof_tokens),
+        ])]
     }
 }

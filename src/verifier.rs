@@ -1,11 +1,16 @@
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
-use crate::errors::VerificationError;
+use crate::{config::EigenConfig, errors::VerificationError, sdk::RawEigenClient, EigenClient};
 use ark_bn254::{Fq, G1Affine};
 use bytes::Bytes;
 use ethabi::{encode, ParamType, Token};
 use ethereum_types::{Address, U256};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
+use tempfile::NamedTempFile;
 use tiny_keccak::{Hasher, Keccak};
 use tokio::{fs::File, io::AsyncWriteExt};
 use url::Url;
@@ -15,6 +20,21 @@ use super::{
     errors::EthClientError,
     eth_client::EthClient,
 };
+
+#[derive(Debug)]
+enum PointFile {
+    Temp(NamedTempFile),
+    Path(PathBuf),
+}
+
+impl PointFile {
+    fn path(&self) -> &Path {
+        match self {
+            PointFile::Temp(file) => file.path(),
+            PointFile::Path(path) => path.as_path(),
+        }
+    }
+}
 
 /// Trait that defines the methods for the ethclient used by the verifier, needed in order to mock it for tests
 #[async_trait::async_trait]
@@ -53,23 +73,13 @@ impl VerifierClient for EthClient {
     }
 }
 
-/// Configuration for the verifier used for authenticated dispersals
-#[derive(Debug, Clone)]
-pub(crate) struct VerifierConfig {
-    pub(crate) svc_manager_addr: Address,
-    pub(crate) max_blob_size: u32,
-    pub(crate) g1_url: Url,
-    pub(crate) g2_url: Url,
-    pub(crate) settlement_layer_confirmation_depth: u32,
-}
-
 /// Verifier used to verify the integrity of the blob info
 /// Kzg is used for commitment verification
 /// EigenDA service manager is used to connect to the service manager contract
 #[derive(Debug)]
 pub(crate) struct Verifier {
     kzg: Kzg,
-    cfg: VerifierConfig,
+    cfg: EigenConfig,
     eth_client: Box<dyn VerifierClient>,
 }
 
@@ -89,54 +99,85 @@ impl Verifier {
     pub(crate) const G2POINT: &'static str = "g2.point.powerOf2";
     pub(crate) const POINT_SIZE: u32 = 32;
 
-    async fn save_point(url: Url, point: String) -> Result<(), VerificationError> {
+    async fn download_temp_point(url: &String) -> Result<NamedTempFile, VerificationError> {
         let response = reqwest::get(url)
             .await
-            .map_err(|e| VerificationError::Link(e.to_string()))?;
+            .map_err(|e| VerificationError::PointDownloadError(e.to_string()))?;
+
         if !response.status().is_success() {
-            return Err(VerificationError::Link("Failed to get point".to_string()));
+            return Err(VerificationError::PointDownloadError(format!(
+                "Failed to download point from source {}",
+                url
+            )));
         }
-        let path = format!("./{}", point);
-        let path = Path::new(&path);
-        let mut file = File::create(path)
-            .await
-            .map_err(|e| VerificationError::Link(e.to_string()))?;
+
         let content = response
             .bytes()
             .await
-            .map_err(|e| VerificationError::Link(e.to_string()))?;
-        file.write_all(&content)
-            .await
-            .map_err(|e| VerificationError::Link(e.to_string()))?;
-        Ok(())
-    }
-    async fn save_points(url_g1: Url, url_g2: Url) -> Result<String, VerificationError> {
-        Self::save_point(url_g1, Self::G1POINT.to_string()).await?;
-        Self::save_point(url_g2, Self::G2POINT.to_string()).await?;
+            .map_err(|e| VerificationError::PointDownloadError(e.to_string()))?;
 
-        Ok(".".to_string())
+        // Tempfile writting uses `std::fs`, so we need to spawn a blocking task
+        let temp_file = tokio::task::spawn_blocking(move || {
+            let mut file = NamedTempFile::new()
+                .map_err(|e| VerificationError::PointDownloadError(e.to_string()))?;
+
+            file.write_all(&content)
+                .map_err(|e| VerificationError::PointDownloadError(e.to_string()))?;
+
+            file.flush()
+                .map_err(|e| VerificationError::PointDownloadError(e.to_string()))?;
+
+            Ok::<NamedTempFile, VerificationError>(file)
+        })
+        .await
+        .map_err(|e| VerificationError::PointDownloadError(e.to_string()))??;
+
+        Ok::<NamedTempFile, VerificationError>(temp_file)
     }
+
+    async fn get_points(cfg: &EigenConfig) -> Result<(PointFile, PointFile), VerificationError> {
+        match &cfg.points_dir {
+            Some(path) => Ok((
+                PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G1POINT))),
+                PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G2POINT))),
+            )),
+            None => Ok((
+                PointFile::Temp(Self::download_temp_point(&cfg.g1_url).await?),
+                PointFile::Temp(Self::download_temp_point(&cfg.g2_url).await?),
+            )),
+        }
+    }
+
     /// Returns a new Verifier
     pub(crate) async fn new<T: VerifierClient + 'static>(
-        cfg: VerifierConfig,
-        eth_client: T,
+        // TODO: remove static
+        cfg: EigenConfig,
+        eth_client: T, // Arc<dyn VerifierClient>,
     ) -> Result<Self, VerificationError> {
-        let srs_points_to_load = cfg.max_blob_size / Self::POINT_SIZE;
-        let path = Self::save_points(cfg.clone().g1_url, cfg.clone().g2_url).await?;
+        let srs_points_to_load = RawEigenClient::blob_size_limit() as u32 / Self::POINT_SIZE;
+        let (g1_point_file, g2_point_file) = Self::get_points(&cfg).await?;
         let kzg_handle = tokio::task::spawn_blocking(move || {
+            let g1_point_file_path =
+                g1_point_file.path().to_str().ok_or(VerificationError::Kzg(
+                    "Could not format point path into a valid string".to_string(),
+                ))?;
+            let g2_point_file_path =
+                g2_point_file.path().to_str().ok_or(VerificationError::Kzg(
+                    "Could not format point path into a valid string".to_string(),
+                ))?;
             Kzg::setup(
-                &format!("{}/{}", path, Self::G1POINT),
+                g1_point_file_path,
                 "",
-                &format!("{}/{}", path, Self::G2POINT),
+                g2_point_file_path,
                 Self::SRSORDER,
                 srs_points_to_load,
                 "".to_string(),
             )
+            .map_err(|e| VerificationError::Kzg(e.to_string()))
         });
         let kzg = kzg_handle
             .await
-            .map_err(|e| VerificationError::Kzg(e.to_string()))?
-            .map_err(|e| VerificationError::Kzg(e.to_string()))?;
+            .map_err(|e| VerificationError::Kzg(e.to_string()))??;
 
         Ok(Self {
             kzg,
@@ -328,7 +369,7 @@ impl Verifier {
         let res = self
             .eth_client
             .call(
-                self.cfg.svc_manager_addr,
+                self.cfg.eigenda_svc_manager_address,
                 bytes::Bytes::copy_from_slice(&data),
                 Some(context_block),
             )
@@ -397,7 +438,7 @@ impl Verifier {
         let res = self
             .eth_client
             .call(
-                self.cfg.svc_manager_addr,
+                self.cfg.eigenda_svc_manager_address,
                 bytes::Bytes::copy_from_slice(&data),
                 None,
             )
@@ -422,7 +463,7 @@ impl Verifier {
         let res = self
             .eth_client
             .call(
-                self.cfg.svc_manager_addr,
+                self.cfg.eigenda_svc_manager_address,
                 bytes::Bytes::copy_from_slice(&data),
                 None,
             )

@@ -113,8 +113,8 @@ pub enum VerificationError {
     CommitmentNotOnCurve,
     #[error("Commitment not on correct subgroup")]
     CommitmentNotOnCorrectSubgroup,
-    #[error("Link Error: {0}")]
-    Link(String),
+    #[error("Point download error: {0}")]
+    PointDownloadError(String),
     #[error("Data Mismatch")]
     DataMismatch,
 }

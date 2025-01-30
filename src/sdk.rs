@@ -143,7 +143,7 @@ impl RawEigenClient {
             .next()
             .await
             .ok_or(CommunicationError::NoResponseFromServer)?
-            .unwrap()
+            .map_err(BlobStatusError::Status)?
             .payload
             .ok_or(CommunicationError::NoPayloadInResponse)?;
 

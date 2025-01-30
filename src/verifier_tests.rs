@@ -81,7 +81,6 @@ mod test {
 
             let calldata = bytes::Bytes::copy_from_slice(&data);
 
-            // let req = serde_json::to_string(&call_request).unwrap();
             let req = serde_json::to_string(&calldata).unwrap();
             let res = self.replies.get(&req).unwrap().clone();
             decode_bytes(res.to_vec())

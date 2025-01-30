@@ -4,7 +4,7 @@
 /// `cargo test client_tests -- --ignored`
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, time::Duration};
+    use std::{str::FromStr, sync::Arc, time::Duration};
 
     use crate::{
         client::GetBlobData,
@@ -76,10 +76,6 @@ mod tests {
         ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(None)
         }
-
-        fn clone_boxed(&self) -> Box<dyn GetBlobData> {
-            Box::new(self.clone())
-        }
     }
 
     #[ignore = "depends on external RPC"]
@@ -93,7 +89,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -121,7 +117,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -150,7 +146,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -178,7 +174,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -207,7 +203,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];

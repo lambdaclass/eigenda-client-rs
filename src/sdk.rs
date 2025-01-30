@@ -18,7 +18,6 @@ use crate::{
     },
 };
 use byteorder::{BigEndian, ByteOrder};
-use ethereum_types::Address;
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
 use tiny_keccak::{Hasher, Keccak};
 use tokio::sync::{mpsc, Mutex};
@@ -27,28 +26,15 @@ use tonic::{
     transport::{Channel, ClientTlsConfig, Endpoint},
     Streaming,
 };
-use url::Url;
 
 /// Raw Client that comunicates with the disperser
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct RawEigenClient {
     client: Arc<Mutex<DisperserClient<Channel>>>,
     private_key: SecretKey,
     pub config: EigenConfig,
     verifier: Verifier,
-    get_blob_data: Box<dyn GetBlobData>,
-}
-
-impl Clone for RawEigenClient {
-    fn clone(&self) -> Self {
-        Self {
-            client: self.client.clone(),
-            private_key: self.private_key,
-            config: self.config.clone(),
-            verifier: self.verifier.clone(),
-            get_blob_data: self.get_blob_data.clone_boxed(),
-        }
-    }
+    get_blob_data: Arc<dyn GetBlobData>,
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
@@ -59,7 +45,7 @@ impl RawEigenClient {
     pub(crate) async fn new(
         private_key: SecretKey,
         config: EigenConfig,
-        get_blob_data: Box<dyn GetBlobData>,
+        get_blob_data: Arc<dyn GetBlobData>,
     ) -> Result<Self, EigenClientError> {
         let endpoint = Endpoint::from_str(config.disperser_rpc.as_str())
             .map_err(ConfigError::Tonic)?
@@ -71,10 +57,13 @@ impl RawEigenClient {
                 .map_err(ConfigError::Tonic)?,
         ));
 
-        let url = config.eigenda_eth_rpc.clone().unwrap(); // TODO: remove unwrap
-        let eth_client = eth_client::EthClient::new(&url);
+        let url = config
+            .eigenda_eth_rpc
+            .clone()
+            .ok_or(ConfigError::NoEthRpc)?;
+        let eth_client = eth_client::EthClient::new(url);
 
-        let verifier = Verifier::new(config.clone(), eth_client).await?;
+        let verifier = Verifier::new(config.clone(), Arc::new(eth_client)).await?;
         Ok(RawEigenClient {
             client,
             private_key,

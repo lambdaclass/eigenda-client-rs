@@ -11,13 +11,42 @@ const DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS: H160 = H160([
     0x69, 0x42, 0xe8, 0x4b,
 ]);
 
+#[derive(Debug, Clone)]
+/// A URL stored securely using the `Secret` type from the secrecy crate
+pub struct SecretUrl {
+    // We keep the URL as a String because Secret<T> enforces T: DefaultIsZeroes
+    // which is not the case for the type Url
+    inner: Secret<String>,
+}
+
+impl SecretUrl {
+    /// Create a new `SecretUrl` from a `Url`
+    pub fn new(url: Url) -> Self {
+        Self {
+            inner: Secret::new(url.to_string()),
+        }
+    }
+}
+
+impl From<SecretUrl> for Url {
+    fn from(secret_url: SecretUrl) -> Self {
+        Url::parse(secret_url.inner.expose_secret()).unwrap() // Safe to unwrap, as the `new` fn ensures the URL is valid
+    }
+}
+
+impl PartialEq for SecretUrl {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.expose_secret().eq(other.inner.expose_secret())
+    }
+}
+
 /// Configuration for the EigenDA remote disperser client.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EigenConfig {
     /// URL of the Disperser RPC server
     pub disperser_rpc: String,
     /// URL of the Ethereum RPC server
-    pub eigenda_eth_rpc: Option<String>,
+    pub eigenda_eth_rpc: Option<SecretUrl>,
     /// Block height needed to reach in order to consider the blob finalized
     /// a value less or equal to 0 means that the disperser will not wait for finalization
     pub settlement_layer_confirmation_depth: u32,
@@ -40,7 +69,7 @@ impl Default for EigenConfig {
         Self {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             settlement_layer_confirmation_depth: 0,
-            eigenda_eth_rpc: Some("foo".to_string()), // Secret::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()), // Safe to unwrap, never fails
+            eigenda_eth_rpc: Some(SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap())), // Safe to unwrap, never fails
             eigenda_svc_manager_address: DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS,
             wait_for_finalization: false,
             authenticated: false,

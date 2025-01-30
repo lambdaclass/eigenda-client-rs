@@ -30,11 +30,11 @@ impl From<DisperserG1Commitment> for G1Commitment {
 /// Internal of BlobInfo
 /// Contains data related to the blob quorums
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct BlobQuorumParam {
-    pub(crate) quorum_number: u32,
-    pub(crate) adversary_threshold_percentage: u32,
-    pub(crate) confirmation_threshold_percentage: u32,
-    pub(crate) chunk_length: u32,
+pub struct BlobQuorumParam {
+    pub quorum_number: u32,
+    pub adversary_threshold_percentage: u32,
+    pub confirmation_threshold_percentage: u32,
+    pub chunk_length: u32,
 }
 
 impl From<DisperserBlobQuorumParam> for BlobQuorumParam {

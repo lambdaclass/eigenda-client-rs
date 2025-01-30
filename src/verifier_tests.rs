@@ -7,8 +7,9 @@ mod test {
     use crate::config::{EigenConfig, SecretUrl};
     use crate::errors::VerificationError;
     use crate::eth_client::EthClient;
-    use crate::verifier::{Verifier, VerifierClient};
-    use ethereum_types::{Address, U64};
+    use crate::verifier::{decode_bytes, Verifier, VerifierClient};
+    use ethabi::{ParamType, Token};
+    use ethereum_types::{Address, U256, U64};
     use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -36,26 +37,54 @@ mod test {
         /// the batch metadata hash for a given batch id
         async fn batch_id_to_batch_metadata_hash(
             &self,
-            _batch_id: u32,
+            batch_id: u32,
             _svc_manager_addr: Address,
             _settlement_layer_confirmation_depth: Option<U64>,
         ) -> Result<Vec<u8>, VerificationError> {
-            todo!()
+            let mut data = vec![];
+            let func_selector =
+                ethabi::short_signature("batchIdToBatchMetadataHash", &[ParamType::Uint(32)]);
+            data.extend_from_slice(&func_selector);
+            let batch_id_data = ethabi::encode(&[Token::Uint(U256::from(batch_id))]);
+            data.extend_from_slice(&batch_id_data);
+
+            let req = bytes::Bytes::copy_from_slice(&data);
+            let req = serde_json::to_string(&req).unwrap();
+            Ok(self.replies.get(&req).unwrap().clone().to_vec())
         }
 
         async fn quorum_adversary_threshold_percentages(
             &self,
-            _quorum_number: u32,
+            quorum_number: u32,
             _svc_manager_addr: Address,
         ) -> Result<u8, VerificationError> {
-            todo!()
+            let func_selector = ethabi::short_signature("quorumAdversaryThresholdPercentages", &[]);
+            let data = func_selector.to_vec();
+
+            let calldata = bytes::Bytes::copy_from_slice(&data);
+            let req = serde_json::to_string(&calldata).unwrap();
+            let res = self.replies.get(&req).unwrap().clone();
+            let percentages = decode_bytes(res.to_vec())?;
+
+            if percentages.len() > quorum_number as usize {
+                return Ok(percentages[quorum_number as usize]);
+            }
+            Ok(0)
         }
 
         async fn required_quorum_numbers(
             &self,
             _svc_manager_addr: Address,
         ) -> Result<Vec<u8>, VerificationError> {
-            todo!()
+            let func_selector = ethabi::short_signature("quorumNumbersRequired", &[]);
+            let data = func_selector.to_vec();
+
+            let calldata = bytes::Bytes::copy_from_slice(&data);
+
+            // let req = serde_json::to_string(&call_request).unwrap();
+            let req = serde_json::to_string(&calldata).unwrap();
+            let res = self.replies.get(&req).unwrap().clone();
+            decode_bytes(res.to_vec())
         }
     }
 

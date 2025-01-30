@@ -5,7 +5,11 @@ use std::{
     sync::Arc,
 };
 
-use crate::{config::EigenConfig, errors::VerificationError, sdk::RawEigenClient};
+use crate::{
+    config::EigenConfig,
+    errors::{ConversionError, KzgError, ServiceManagerError, VerificationError},
+    sdk::RawEigenClient,
+};
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, ParamType, Token};
 use ethereum_types::{Address, U256, U64};
@@ -33,10 +37,10 @@ impl PointFile {
     }
 }
 
-fn decode_bytes(encoded: Vec<u8>) -> Result<Vec<u8>, VerificationError> {
+pub(crate) fn decode_bytes(encoded: Vec<u8>) -> Result<Vec<u8>, VerificationError> {
     let output_type = [ParamType::Bytes];
     let tokens = ethabi::decode(&output_type, &encoded)
-        .map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
+        .map_err(|e| ServiceManagerError::Decoding(e.to_string()))?;
 
     // Safe unwrap because decode guarantees type correctness and non-empty output
     let token = tokens.into_iter().next().unwrap();
@@ -83,10 +87,19 @@ impl VerifierClient for EthClient {
     ) -> Result<Vec<u8>, VerificationError> {
         let context_block = match settlement_layer_confirmation_depth {
             Some(depth) => {
-                let depth = depth.saturating_sub(U64::one()).0[0];
-                let mut current_block = self.get_block_number().await.unwrap(); //.map_err(ServiceManagerError::EnrichedClient)?;
-                current_block = current_block.saturating_sub(U256::from(depth));
-                Some(current_block.try_into().unwrap()) // TODO : Remove unwrap
+                let depth = depth.saturating_sub(U64::one());
+                let mut current_block = self
+                    .get_block_number()
+                    .await
+                    .map_err(ServiceManagerError::EthClient)?;
+                current_block = current_block.saturating_sub(U256::from(depth.as_u64())); // safe conversion between U64 and u64
+                let current_block = current_block.try_into().map_err(|_| {
+                    ConversionError::Cast(format!(
+                        "Could not parse block number {} as u64",
+                        current_block
+                    ))
+                })?;
+                Some(current_block)
             }
             None => None,
         };
@@ -105,15 +118,14 @@ impl VerifierClient for EthClient {
                 context_block,
             )
             .await
-            .map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
+            .map_err(ServiceManagerError::EthClient)?;
 
         let res = res.trim_start_matches("0x");
 
         let expected_hash =
-            hex::decode(res).map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
+            hex::decode(res).map_err(|e| ServiceManagerError::Decoding(e.to_string()))?;
 
         Ok(expected_hash)
-        // todo!()
     }
 
     async fn quorum_adversary_threshold_percentages(
@@ -127,12 +139,12 @@ impl VerifierClient for EthClient {
         let res = self
             .call(svc_manager_addr, bytes::Bytes::copy_from_slice(&data), None)
             .await
-            .map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
+            .map_err(ServiceManagerError::EthClient)?;
 
         let res = res.trim_start_matches("0x");
 
         let percentages_vec =
-            hex::decode(res).map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
+            hex::decode(res).map_err(|e| ServiceManagerError::Decoding(e.to_string()))?;
 
         let percentages = decode_bytes(percentages_vec)?;
 
@@ -151,12 +163,12 @@ impl VerifierClient for EthClient {
         let res = self
             .call(svc_manager_addr, bytes::Bytes::copy_from_slice(&data), None)
             .await
-            .map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
+            .map_err(ServiceManagerError::EthClient)?;
 
         let res = res.trim_start_matches("0x");
 
         let required_quorums_vec =
-            hex::decode(res).map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
+            hex::decode(res).map_err(|e| ServiceManagerError::Decoding(e.to_string()))?;
 
         let required_quorums = decode_bytes(required_quorums_vec)?;
 
@@ -237,14 +249,12 @@ impl Verifier {
         let srs_points_to_load = RawEigenClient::blob_size_limit() as u32 / Self::POINT_SIZE;
         let (g1_point_file, g2_point_file) = Self::get_points(&cfg).await?;
         let kzg_handle = tokio::task::spawn_blocking(move || {
-            let g1_point_file_path =
-                g1_point_file.path().to_str().ok_or(VerificationError::Kzg(
-                    "Could not format point path into a valid string".to_string(),
-                ))?;
-            let g2_point_file_path =
-                g2_point_file.path().to_str().ok_or(VerificationError::Kzg(
-                    "Could not format point path into a valid string".to_string(),
-                ))?;
+            let g1_point_file_path = g1_point_file.path().to_str().ok_or(KzgError::Setup(
+                "Could not format point path into a valid string".to_string(),
+            ))?;
+            let g2_point_file_path = g2_point_file.path().to_str().ok_or(KzgError::Setup(
+                "Could not format point path into a valid string".to_string(),
+            ))?;
             Kzg::setup(
                 g1_point_file_path,
                 "",
@@ -253,11 +263,11 @@ impl Verifier {
                 srs_points_to_load,
                 "".to_string(),
             )
-            .map_err(|e| VerificationError::Kzg(e.to_string()))
+            .map_err(KzgError::Internal)
         });
         let kzg = kzg_handle
             .await
-            .map_err(|e| VerificationError::Kzg(e.to_string()))??;
+            .map_err(|e| VerificationError::Kzg(KzgError::Setup(e.to_string())))??;
 
         Ok(Self {
             kzg,
@@ -271,7 +281,7 @@ impl Verifier {
         let blob = Blob::from_bytes_and_pad(&blob.to_vec());
         self.kzg
             .blob_to_kzg_commitment(&blob, PolynomialFormat::InEvaluationForm)
-            .map_err(|e| VerificationError::Kzg(e.to_string()))
+            .map_err(|e| VerificationError::Kzg(KzgError::Internal(e)))
     }
 
     /// Compare the given commitment with the commitment generated with the blob
@@ -286,13 +296,18 @@ impl Verifier {
             Fq::from(num_bigint::BigUint::from_bytes_be(&expected_commitment.y)),
         );
         if !expected_commitment.is_on_curve() {
-            return Err(VerificationError::CommitmentNotOnCurve);
+            return Err(VerificationError::CommitmentNotOnCurve(expected_commitment));
         }
         if !expected_commitment.is_in_correct_subgroup_assuming_on_curve() {
-            return Err(VerificationError::CommitmentNotOnCorrectSubgroup);
+            return Err(VerificationError::CommitmentNotOnCorrectSubgroup(
+                expected_commitment,
+            ));
         }
         if actual_commitment != expected_commitment {
-            return Err(VerificationError::DifferentCommitments);
+            return Err(VerificationError::DifferentCommitments {
+                expected: Box::new(expected_commitment),
+                actual: Box::new(actual_commitment),
+            });
         }
         Ok(())
     }
@@ -380,7 +395,10 @@ impl Verifier {
             self.process_inclusion_proof(inclusion_proof, &leaf_hash, blob_index)?;
 
         if generated_root != *root {
-            return Err(VerificationError::DifferentRoots);
+            return Err(VerificationError::DifferentRoots {
+                expected: hex::encode(root),
+                actual: hex::encode(&generated_root),
+            });
         }
         Ok(())
     }
@@ -460,7 +478,10 @@ impl Verifier {
         );
 
         if expected_hash != actual_hash {
-            return Err(VerificationError::DifferentHashes);
+            return Err(VerificationError::DifferentHashes {
+                expected: hex::encode(&expected_hash),
+                actual: hex::encode(&actual_hash),
+            });
         }
         Ok(())
     }
@@ -479,26 +500,6 @@ impl Verifier {
     }
 
     async fn call_quorum_numbers_required(&self) -> Result<Vec<u8>, VerificationError> {
-        // let func_selector = ethabi::short_signature("quorumNumbersRequired", &[]);
-        // let data = func_selector.to_vec();
-        // let res = self
-        //     .eth_client
-        //     .call(
-        //         self.cfg.eigenda_svc_manager_address,
-        //         bytes::Bytes::copy_from_slice(&data),
-        //         None,
-        //     )
-        //     .await
-        //     .map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
-
-        // let res = res.trim_start_matches("0x");
-
-        // let required_quorums_vec =
-        //     hex::decode(res).map_err(|e| VerificationError::ServiceManager(e.to_string()))?;
-
-        // let required_quorums = self.decode_bytes(required_quorums_vec)?;
-
-        // Ok(required_quorums)
         self.eth_client
             .as_ref()
             .required_quorum_numbers(self.cfg.eigenda_svc_manager_address)
@@ -518,12 +519,16 @@ impl Verifier {
             if batch_header.quorum_numbers[i] as u32
                 != blob_header.blob_quorum_params[i].quorum_number
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
             if blob_header.blob_quorum_params[i].adversary_threshold_percentage
                 > blob_header.blob_quorum_params[i].confirmation_threshold_percentage
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
             let quorum_adversary_threshold = self
                 .get_quorum_adversary_threshold(blob_header.blob_quorum_params[i].quorum_number)
@@ -533,13 +538,17 @@ impl Verifier {
                 && blob_header.blob_quorum_params[i].adversary_threshold_percentage
                     < quorum_adversary_threshold as u32
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
 
             if (batch_header.quorum_signed_percentages[i] as u32)
                 < blob_header.blob_quorum_params[i].confirmation_threshold_percentage
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
 
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);

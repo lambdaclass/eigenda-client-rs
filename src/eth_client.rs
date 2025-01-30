@@ -107,7 +107,7 @@ impl EthClient {
             Ok(RpcResponse::Success(result)) => {
                 serde_json::from_value(result.result).map_err(EthClientError::SerdeJSON)
             }
-            Ok(RpcResponse::Error(error_response)) => Err(EthClientError::RPC(error_response)),
+            Ok(RpcResponse::Error(error_response)) => Err(EthClientError::Rpc(error_response)),
             Err(error) => Err(error),
         }
     }
@@ -141,7 +141,7 @@ impl EthClient {
             Ok(RpcResponse::Success(result)) => {
                 serde_json::from_value(result.result).map_err(EthClientError::SerdeJSON)
             }
-            Ok(RpcResponse::Error(error_response)) => Err(EthClientError::RPC(error_response)),
+            Ok(RpcResponse::Error(error_response)) => Err(EthClientError::Rpc(error_response)),
             Err(error) => Err(error),
         }
     }

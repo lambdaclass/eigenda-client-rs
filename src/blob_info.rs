@@ -28,16 +28,16 @@ impl From<DisperserG1Commitment> for G1Commitment {
 }
 
 /// Internal of BlobInfo
-/// Contains data related to the blob quorums
-/// quorum_number: The ID of the quorum.
-/// adversary_threshold_percentage: The max percentage of stake within the quorum that can be held by or delegated to adversarial operators.
-/// confirmation_threshold_percentage: the min percentage of stake that must attest in order to consider the dispersal is successful.    
-/// chunk_length: The length of each chunk.    
+/// Contains data related to the blob quorums  
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlobQuorumParam {
+    /// The ID of the quorum.
     pub quorum_number: u32,
+    /// The max percentage of stake within the quorum that can be held by or delegated to adversarial operators.
     pub adversary_threshold_percentage: u32,
+    /// The min percentage of stake that must attest in order to consider the dispersal is successful.    
     pub confirmation_threshold_percentage: u32,
+    /// The length of each chunk.    
     pub chunk_length: u32,
 }
 

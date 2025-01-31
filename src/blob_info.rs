@@ -42,8 +42,8 @@ impl From<DisperserG1Commitment> for G1Commitment {
 /// Contains data related to the blob quorums
 /// quorum_number: The ID of the quorum.
 /// adversary_threshold_percentage: The max percentage of stake within the quorum that can be held by or delegated to adversarial operators.
-/// confirmation_threshold_percentage: the min percentage of stake that must attest in order to consider the dispersal is successful.    
-/// chunk_length: The length of each chunk.    
+/// confirmation_threshold_percentage: the min percentage of stake that must attest in order to consider the dispersal is successful.
+/// chunk_length: The length of each chunk.
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlobQuorumParam {
     pub quorum_number: u32,
@@ -181,10 +181,17 @@ impl BatchMetadata {
         let signatory_record_hash = Token::FixedBytes(self.signatory_record_hash.clone());
         let confirmation_block_number = Token::Uint(U256::from(self.confirmation_block_number));
 
+        // TODO: necessary for blob retrieval of `get_all_blobs`
+        // Remove?
+        let batch_header_hash = Token::Bytes(self.batch_header_hash.clone());
+        let fee = Token::Bytes(self.fee.clone());
+
         vec![
             batch_header,
             signatory_record_hash,
             confirmation_block_number,
+            batch_header_hash,
+            fee,
         ]
     }
 }

@@ -181,7 +181,7 @@ impl VerifierClient for EthClient {
 /// EigenDA service manager is used to connect to the service manager contract
 #[derive(Debug, Clone)]
 pub(crate) struct Verifier {
-    kzg: Kzg,
+    kzg: Arc<Kzg>,
     cfg: EigenConfig,
     eth_client: Arc<dyn VerifierClient>,
 }
@@ -270,7 +270,7 @@ impl Verifier {
             .map_err(|e| VerificationError::Kzg(KzgError::Setup(e.to_string())))??;
 
         Ok(Self {
-            kzg,
+            kzg: Arc::new(kzg),
             cfg,
             eth_client,
         })

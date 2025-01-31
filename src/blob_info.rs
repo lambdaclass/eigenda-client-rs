@@ -29,6 +29,8 @@ impl From<DisperserG1Commitment> for G1Commitment {
 
 /// Internal of BlobInfo
 /// Contains data related to the blob quorums
+/// It is public since it is used by WrongQuorumParams Error
+/// This are verified against the contracts before confirming the blob
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlobQuorumParam {
     pub quorum_number: u32,

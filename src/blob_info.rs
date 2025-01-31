@@ -29,8 +29,10 @@ impl From<DisperserG1Commitment> for G1Commitment {
 
 /// Internal of BlobInfo
 /// Contains data related to the blob quorums
-/// It is public since it is used by WrongQuorumParams Error
-/// This are verified against the contracts before confirming the blob
+/// quorum_number: The ID of the quorum.
+/// adversary_threshold_percentage: The max percentage of stake within the quorum that can be held by or delegated to adversarial operators.
+/// confirmation_threshold_percentage: the min percentage of stake that must attest in order to consider the dispersal is successful.    
+/// chunk_length: The length of each chunk.    
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlobQuorumParam {
     pub quorum_number: u32,

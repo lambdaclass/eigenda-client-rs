@@ -215,6 +215,7 @@ impl RawEigenClient {
     ) -> Result<Option<Vec<u8>>, EigenClientError> {
         let blob_info = self.get_commitment(request_id).await?;
         if let Some(blob_info) = blob_info {
+            println!("Blob Info: {:?}", blob_info);
             Ok(Some(ethabi::encode(&blob_info.to_tokens())))
         } else {
             Ok(None)

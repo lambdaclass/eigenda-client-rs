@@ -57,7 +57,7 @@ pub struct EigenConfig {
     /// Authenticated dispersal
     pub authenticated: bool,
     /// Optional path to downloaded points directory
-    pub points_dir: Option<String>,
+    pub srs_points_dir: Option<String>,
     /// Url to the file containing the G1 point used for KZG
     pub g1_url: String,
     /// Url to the file containing the G2 point used for KZG
@@ -73,7 +73,7 @@ impl Default for EigenConfig {
             eigenda_svc_manager_address: EIGENDA_SVC_MANAGER_HOLESKY_ADDRESS,
             wait_for_finalization: false,
             authenticated: false,
-            points_dir: None,
+            srs_points_dir: None,
             g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
             g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
         }

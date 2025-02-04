@@ -229,7 +229,7 @@ impl Verifier {
     }
 
     async fn get_points(cfg: &EigenConfig) -> Result<(PointFile, PointFile), VerificationError> {
-        match &cfg.points_dir {
+        match &cfg.srs_points_dir {
             Some(path) => Ok((
                 PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G1POINT))),
                 PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G2POINT))),

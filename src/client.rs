@@ -17,7 +17,7 @@ use std::{str::FromStr, sync::Arc};
 pub trait GetBlobData: std::fmt::Debug + Send + Sync {
     async fn get_blob_data(
         &self,
-        input: &str,
+        blob_id: &str,
     ) -> Result<Option<Vec<u8>>, Box<dyn Error + Send + Sync>>;
 }
 

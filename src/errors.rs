@@ -25,8 +25,8 @@ pub enum EigenClientError {
 pub enum ConfigError {
     #[error("Private Key Error")]
     PrivateKey,
-    #[error("ETH RPC not set")]
-    NoEthRpc,
+    #[error("ETH RPC URL not set")]
+    NoEthRpcUrl,
     #[error(transparent)]
     Secp(#[from] secp256k1::Error),
     #[error(transparent)]

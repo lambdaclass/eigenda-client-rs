@@ -60,7 +60,7 @@ impl RawEigenClient {
         let url = config
             .eth_rpc_url
             .clone()
-            .ok_or(ConfigError::NoEthRpc)?;
+            .ok_or(ConfigError::NoEthRpcUrl)?;
         let eth_client = eth_client::EthClient::new(url);
 
         let verifier = Verifier::new(config.clone(), Arc::new(eth_client)).await?;

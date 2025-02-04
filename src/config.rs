@@ -46,7 +46,7 @@ pub struct EigenConfig {
     /// URL of the Disperser RPC server
     pub disperser_rpc: String,
     /// URL of the Ethereum RPC server
-    pub eigenda_eth_rpc: Option<SecretUrl>,
+    pub eth_rpc_url: Option<SecretUrl>,
     /// Block height needed to reach in order to consider the blob finalized
     /// a value less or equal to 0 means that the disperser will not wait for finalization
     pub settlement_layer_confirmation_depth: u32,
@@ -69,7 +69,7 @@ impl Default for EigenConfig {
         Self {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             settlement_layer_confirmation_depth: 0,
-            eigenda_eth_rpc: Some(SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap())), // Safe to unwrap, never fails
+            eth_rpc_url: Some(SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap())), // Safe to unwrap, never fails
             eigenda_svc_manager_address: EIGENDA_SVC_MANAGER_HOLESKY_ADDRESS,
             wait_for_finalization: false,
             authenticated: false,

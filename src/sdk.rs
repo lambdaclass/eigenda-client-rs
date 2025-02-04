@@ -58,7 +58,7 @@ impl RawEigenClient {
         ));
 
         let url = config
-            .eigenda_eth_rpc
+            .eth_rpc_url
             .clone()
             .ok_or(ConfigError::NoEthRpc)?;
         let eth_client = eth_client::EthClient::new(url);

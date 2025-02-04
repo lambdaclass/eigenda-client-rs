@@ -12,7 +12,7 @@ use crate::{
 };
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, ParamType, Token};
-use ethereum_types::{Address, U256, U64};
+use ethereum_types::{U256, U64};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tempfile::NamedTempFile;
 use tiny_keccak::{Hasher, Keccak};
@@ -51,13 +51,12 @@ pub(crate) fn decode_bytes(encoded: Vec<u8>) -> Result<Vec<u8>, VerificationErro
 
 /// Trait that defines the methods for the ethclient used by the verifier, needed in order to mock it for tests
 #[async_trait::async_trait]
-pub(crate) trait VerifierClient: Sync + Send + std::fmt::Debug {
+pub(crate) trait SvcManagerClient: Sync + Send + std::fmt::Debug {
     /// Request to the EigenDA service manager contract
     /// the batch metadata hash for a given batch id
     async fn batch_id_to_batch_metadata_hash(
         &self,
         batch_id: u32,
-        svc_manager_addr: Address,
         settlement_layer_confirmation_depth: Option<U64>,
     ) -> Result<Vec<u8>, VerificationError>;
 
@@ -66,23 +65,18 @@ pub(crate) trait VerifierClient: Sync + Send + std::fmt::Debug {
     async fn quorum_adversary_threshold_percentages(
         &self,
         quorum_number: u32,
-        svc_manager_addr: Address,
     ) -> Result<u8, VerificationError>;
 
     /// Request to the EigenDA service manager contract
     /// the set of quorum numbers that are required
-    async fn required_quorum_numbers(
-        &self,
-        svc_manager_addr: Address,
-    ) -> Result<Vec<u8>, VerificationError>;
+    async fn required_quorum_numbers(&self) -> Result<Vec<u8>, VerificationError>;
 }
 
 #[async_trait::async_trait]
-impl VerifierClient for EthClient {
+impl SvcManagerClient for EthClient {
     async fn batch_id_to_batch_metadata_hash(
         &self,
         batch_id: u32,
-        svc_manager_addr: Address,
         settlement_layer_confirmation_depth: Option<U64>,
     ) -> Result<Vec<u8>, VerificationError> {
         let context_block = match settlement_layer_confirmation_depth {
@@ -113,7 +107,7 @@ impl VerifierClient for EthClient {
 
         let res = self
             .call(
-                svc_manager_addr,
+                self.svc_manager_addr,
                 bytes::Bytes::copy_from_slice(&data),
                 context_block,
             )
@@ -131,13 +125,16 @@ impl VerifierClient for EthClient {
     async fn quorum_adversary_threshold_percentages(
         &self,
         quorum_number: u32,
-        svc_manager_addr: Address,
     ) -> Result<u8, VerificationError> {
         let func_selector = ethabi::short_signature("quorumAdversaryThresholdPercentages", &[]);
         let data = func_selector.to_vec();
 
         let res = self
-            .call(svc_manager_addr, bytes::Bytes::copy_from_slice(&data), None)
+            .call(
+                self.svc_manager_addr,
+                bytes::Bytes::copy_from_slice(&data),
+                None,
+            )
             .await
             .map_err(ServiceManagerError::EthClient)?;
 
@@ -154,14 +151,15 @@ impl VerifierClient for EthClient {
         Ok(0)
     }
 
-    async fn required_quorum_numbers(
-        &self,
-        svc_manager_addr: Address,
-    ) -> Result<Vec<u8>, VerificationError> {
+    async fn required_quorum_numbers(&self) -> Result<Vec<u8>, VerificationError> {
         let func_selector = ethabi::short_signature("quorumNumbersRequired", &[]);
         let data = func_selector.to_vec();
         let res = self
-            .call(svc_manager_addr, bytes::Bytes::copy_from_slice(&data), None)
+            .call(
+                self.svc_manager_addr,
+                bytes::Bytes::copy_from_slice(&data),
+                None,
+            )
             .await
             .map_err(ServiceManagerError::EthClient)?;
 
@@ -183,7 +181,7 @@ impl VerifierClient for EthClient {
 pub(crate) struct Verifier {
     kzg: Arc<Kzg>,
     cfg: EigenConfig,
-    eth_client: Arc<dyn VerifierClient>,
+    eth_client: Arc<dyn SvcManagerClient>,
 }
 
 impl Verifier {
@@ -244,7 +242,7 @@ impl Verifier {
     /// Returns a new Verifier
     pub(crate) async fn new(
         cfg: EigenConfig,
-        eth_client: Arc<dyn VerifierClient>,
+        eth_client: Arc<dyn SvcManagerClient>,
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = RawEigenClient::blob_size_limit() as u32 / Self::POINT_SIZE;
         let (g1_point_file, g2_point_file) = Self::get_points(&cfg).await?;
@@ -448,7 +446,6 @@ impl Verifier {
             .as_ref()
             .batch_id_to_batch_metadata_hash(
                 blob_info.blob_verification_proof.batch_id,
-                self.cfg.eigenda_svc_manager_address,
                 Some(U64::from(self.cfg.settlement_layer_confirmation_depth)),
             )
             .await
@@ -492,18 +489,12 @@ impl Verifier {
     ) -> Result<u8, VerificationError> {
         self.eth_client
             .as_ref()
-            .quorum_adversary_threshold_percentages(
-                quorum_number,
-                self.cfg.eigenda_svc_manager_address,
-            )
+            .quorum_adversary_threshold_percentages(quorum_number)
             .await
     }
 
     async fn call_quorum_numbers_required(&self) -> Result<Vec<u8>, VerificationError> {
-        self.eth_client
-            .as_ref()
-            .required_quorum_numbers(self.cfg.eigenda_svc_manager_address)
-            .await
+        self.eth_client.as_ref().required_quorum_numbers().await
     }
 
     /// Verifies that the certificate's blob quorum params are correct

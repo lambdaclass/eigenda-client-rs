@@ -57,11 +57,8 @@ impl RawEigenClient {
                 .map_err(ConfigError::Tonic)?,
         ));
 
-        let url = config
-            .eth_rpc_url
-            .clone()
-            .ok_or(ConfigError::NoEthRpcUrl)?;
-        let eth_client = eth_client::EthClient::new(url);
+        let url = config.eth_rpc_url.clone().ok_or(ConfigError::NoEthRpcUrl)?;
+        let eth_client = eth_client::EthClient::new(url, config.eigenda_svc_manager_address);
 
         let verifier = Verifier::new(config.clone(), Arc::new(eth_client)).await?;
         Ok(RawEigenClient {

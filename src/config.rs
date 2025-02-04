@@ -6,7 +6,7 @@ use url::Url;
 use crate::errors::{ConfigError, EigenClientError};
 
 /// Default address of the EigenDA service manager contract deployed on Holesky.
-const DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS: H160 = H160([
+const EIGENDA_SVC_MANAGER_HOLESKY_ADDRESS: H160 = H160([
     0xd4, 0xa7, 0xe1, 0xbd, 0x80, 0x15, 0x05, 0x72, 0x93, 0xf0, 0xd0, 0xa5, 0x57, 0x08, 0x8c, 0x28,
     0x69, 0x42, 0xe8, 0x4b,
 ]);
@@ -70,7 +70,7 @@ impl Default for EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             settlement_layer_confirmation_depth: 0,
             eigenda_eth_rpc: Some(SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap())), // Safe to unwrap, never fails
-            eigenda_svc_manager_address: DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS,
+            eigenda_svc_manager_address: EIGENDA_SVC_MANAGER_HOLESKY_ADDRESS,
             wait_for_finalization: false,
             authenticated: false,
             points_dir: None,

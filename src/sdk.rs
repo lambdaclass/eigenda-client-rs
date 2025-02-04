@@ -37,7 +37,7 @@ pub(crate) struct RawEigenClient {
     get_blob_data: Arc<dyn GetBlobData>,
 }
 
-pub(crate) const DATA_CHUNK_SIZE: usize = 32;
+pub(crate) const FIELD_ELEMENT_SIZE_BYTES: usize = 32;
 
 impl RawEigenClient {
     const BLOB_SIZE_LIMIT: usize = 1024 * 1024 * 2; // 2 MB
@@ -395,7 +395,7 @@ fn get_account_id(secret_key: &SecretKey) -> String {
 }
 
 fn convert_by_padding_empty_byte(data: &[u8]) -> Vec<u8> {
-    let parse_size = DATA_CHUNK_SIZE - 1;
+    let parse_size = FIELD_ELEMENT_SIZE_BYTES - 1;
 
     let chunk_count = data.len().div_ceil(parse_size);
     let mut valid_data = Vec::with_capacity(data.len() + chunk_count);
@@ -408,7 +408,7 @@ fn convert_by_padding_empty_byte(data: &[u8]) -> Vec<u8> {
 }
 
 fn remove_empty_byte_from_padded_bytes(data: &[u8]) -> Vec<u8> {
-    let parse_size = DATA_CHUNK_SIZE;
+    let parse_size = FIELD_ELEMENT_SIZE_BYTES;
 
     let chunk_count = data.len().div_ceil(parse_size);
     // Safe subtraction, as we know chunk_count is always less than the length of the data

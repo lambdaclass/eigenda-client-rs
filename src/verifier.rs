@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     io::Write,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use crate::{
@@ -177,14 +176,14 @@ impl SvcManagerClient for EthClient {
 /// Verifier used to verify the integrity of the blob info
 /// Kzg is used for commitment verification
 /// EigenDA service manager is used to connect to the service manager contract
-#[derive(Debug, Clone)]
-pub(crate) struct Verifier {
-    kzg: Arc<Kzg>,
+#[derive(Debug)]
+pub(crate) struct Verifier<T: SvcManagerClient> {
+    kzg: Kzg,
     cfg: EigenConfig,
-    eth_client: Arc<dyn SvcManagerClient>,
+    eth_client: T,
 }
 
-impl Verifier {
+impl<T: SvcManagerClient> Verifier<T> {
     pub(crate) const SRSORDER: u32 = 268435456; // 2 ^ 28
     pub(crate) const G1POINT: &'static str = "g1.point";
     pub(crate) const G2POINT: &'static str = "g2.point.powerOf2";
@@ -240,10 +239,7 @@ impl Verifier {
     }
 
     /// Returns a new Verifier
-    pub(crate) async fn new(
-        cfg: EigenConfig,
-        eth_client: Arc<dyn SvcManagerClient>,
-    ) -> Result<Self, VerificationError> {
+    pub(crate) async fn new(cfg: EigenConfig, eth_client: T) -> Result<Self, VerificationError> {
         let srs_points_to_load = RawEigenClient::blob_size_limit() as u32 / Self::POINT_SIZE;
         let (g1_point_file, g2_point_file) = Self::get_points(&cfg).await?;
         let kzg_handle = tokio::task::spawn_blocking(move || {
@@ -268,7 +264,7 @@ impl Verifier {
             .map_err(|e| VerificationError::Kzg(KzgError::Setup(e.to_string())))??;
 
         Ok(Self {
-            kzg: Arc::new(kzg),
+            kzg,
             cfg,
             eth_client,
         })
@@ -443,7 +439,6 @@ impl Verifier {
         blob_info: &BlobInfo,
     ) -> Result<Vec<u8>, VerificationError> {
         self.eth_client
-            .as_ref()
             .batch_id_to_batch_metadata_hash(
                 blob_info.blob_verification_proof.batch_id,
                 Some(U64::from(self.cfg.settlement_layer_confirmation_depth)),
@@ -488,13 +483,12 @@ impl Verifier {
         quorum_number: u32,
     ) -> Result<u8, VerificationError> {
         self.eth_client
-            .as_ref()
             .quorum_adversary_threshold_percentages(quorum_number)
             .await
     }
 
     async fn call_quorum_numbers_required(&self) -> Result<Vec<u8>, VerificationError> {
-        self.eth_client.as_ref().required_quorum_numbers().await
+        self.eth_client.required_quorum_numbers().await
     }
 
     /// Verifies that the certificate's blob quorum params are correct

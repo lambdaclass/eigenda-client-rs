@@ -6,7 +6,9 @@ use url::Url;
 use crate::errors::{ConfigError, EigenClientError};
 
 /// Default address of the EigenDA service manager contract deployed on Holesky.
-const EIGENDA_SVC_MANAGER_HOLESKY_ADDRESS: H160 = H160(hex_literal::hex!("d4a7e1bd8015057293f0d0a557088c286942e84b"));
+const EIGENDA_SVC_MANAGER_HOLESKY_ADDRESS: H160 = H160(hex_literal::hex!(
+    "d4a7e1bd8015057293f0d0a557088c286942e84b"
+));
 
 #[derive(Debug, Clone)]
 /// A URL stored securely using the `Secret` type from the secrecy crate

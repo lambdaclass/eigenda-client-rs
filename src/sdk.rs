@@ -28,12 +28,12 @@ use tonic::{
 };
 
 /// Raw Client that comunicates with the disperser
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct RawEigenClient {
     client: Arc<Mutex<DisperserClient<Channel>>>,
     private_key: SecretKey,
     pub config: EigenConfig,
-    verifier: Verifier,
+    verifier: Verifier<eth_client::EthClient>,
     get_blob_data: Arc<dyn GetBlobData>,
 }
 
@@ -60,7 +60,7 @@ impl RawEigenClient {
         let url = config.eth_rpc_url.clone().ok_or(ConfigError::NoEthRpcUrl)?;
         let eth_client = eth_client::EthClient::new(url, config.eigenda_svc_manager_address);
 
-        let verifier = Verifier::new(config.clone(), Arc::new(eth_client)).await?;
+        let verifier = Verifier::new(config.clone(), eth_client).await?;
         Ok(RawEigenClient {
             client,
             private_key,

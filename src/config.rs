@@ -35,7 +35,7 @@ impl PartialEq for SecretUrl {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum PointsSource {
+pub enum SrsPointsSource {
     Path(String),
     /// g1_url, g2_url
     Url((String, String)),
@@ -58,7 +58,7 @@ pub struct EigenConfig {
     /// Authenticated dispersal
     pub authenticated: bool,
     /// Points source
-    pub points_source: PointsSource,
+    pub points_source: SrsPointsSource,
 }
 
 /// Contains the private key

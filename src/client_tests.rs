@@ -7,7 +7,10 @@ mod tests {
     use std::{str::FromStr, sync::Arc, time::Duration};
 
     use crate::{
-        client::GetBlobData, config::{EigenConfig, EigenSecrets, PrivateKey}, errors::{CommunicationError, EigenClientError}, test_eigenda_config, EigenClient
+        client::GetBlobData,
+        config::{EigenConfig, EigenSecrets, PrivateKey},
+        errors::{CommunicationError, EigenClientError},
+        test_eigenda_config, EigenClient,
     };
     use backon::{ConstantBuilder, Retryable};
     use serial_test::serial;

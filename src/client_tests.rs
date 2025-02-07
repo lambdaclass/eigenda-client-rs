@@ -7,7 +7,7 @@ mod tests {
     use std::{str::FromStr, sync::Arc, time::Duration};
 
     use crate::{
-        client::GetBlobData, config::{EigenConfig, EigenSecrets, PrivateKey}, errors::{CommunicationError, EigenClientError}, test_eigen_config, EigenClient
+        client::GetBlobData, config::{EigenConfig, EigenSecrets, PrivateKey}, errors::{CommunicationError, EigenClientError}, test_eigenda_config, EigenClient
     };
     use backon::{ConstantBuilder, Retryable};
     use serial_test::serial;
@@ -79,7 +79,7 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_non_auth_dispersal() {
-        let config = test_eigen_config();
+        let config = test_eigenda_config();
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(
                 "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
@@ -106,7 +106,7 @@ mod tests {
     async fn test_auth_dispersal() {
         let config = EigenConfig {
             authenticated: true,
-            ..test_eigen_config()
+            ..test_eigenda_config()
         };
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(
@@ -135,7 +135,7 @@ mod tests {
         let config = EigenConfig {
             wait_for_finalization: true,
             authenticated: true,
-            ..test_eigen_config()
+            ..test_eigenda_config()
         };
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(
@@ -163,7 +163,7 @@ mod tests {
     async fn test_settlement_layer_confirmation_depth() {
         let config = EigenConfig {
             settlement_layer_confirmation_depth: 5,
-            ..test_eigen_config()
+            ..test_eigenda_config()
         };
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(
@@ -192,7 +192,7 @@ mod tests {
         let config = EigenConfig {
             settlement_layer_confirmation_depth: 5,
             authenticated: true,
-            ..test_eigen_config()
+            ..test_eigenda_config()
         };
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(

@@ -21,7 +21,7 @@ pub(crate) mod generated {
 }
 
 #[cfg(test)]
-pub fn test_eigen_config() -> crate::config::EigenConfig {
+pub fn test_eigenda_config() -> crate::config::EigenConfig {
     use std::str::FromStr;
 
     crate::config::EigenConfig {

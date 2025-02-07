@@ -38,7 +38,6 @@ impl From<DisperserG1Commitment> for G1Commitment {
     }
 }
 
-/// Internal of BlobInfo
 /// Contains data related to the blob quorums   
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlobQuorumParam {

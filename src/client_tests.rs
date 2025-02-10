@@ -72,7 +72,7 @@ mod tests {
     impl GetBlobData for MockGetBlobData {
         async fn get_blob_data(
             &self,
-            _input: &'_ str,
+            _blob_id: &str,
         ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(None)
         }

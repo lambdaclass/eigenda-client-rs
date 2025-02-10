@@ -7,12 +7,11 @@ mod test {
     use crate::config::{EigenConfig, SecretUrl};
     use crate::errors::VerificationError;
     use crate::eth_client::EthClient;
-    use crate::verifier::{decode_bytes, Verifier, VerifierClient};
+    use crate::verifier::{decode_bytes, SvcManagerClient, Verifier};
     use ethabi::{ParamType, Token};
-    use ethereum_types::{Address, U256, U64};
+    use ethereum_types::{U256, U64};
     use std::collections::HashMap;
     use std::str::FromStr;
-    use std::sync::Arc;
     use url::Url;
 
     /// Mock struct for the Verifier
@@ -32,13 +31,12 @@ mod test {
     }
 
     #[async_trait::async_trait]
-    impl VerifierClient for MockVerifierClient {
+    impl SvcManagerClient for MockVerifierClient {
         /// Request to the EigenDA service manager contract
         /// the batch metadata hash for a given batch id
         async fn batch_id_to_batch_metadata_hash(
             &self,
             batch_id: u32,
-            _svc_manager_addr: Address,
             _settlement_layer_confirmation_depth: Option<U64>,
         ) -> Result<Vec<u8>, VerificationError> {
             let mut data = vec![];
@@ -56,7 +54,6 @@ mod test {
         async fn quorum_adversary_threshold_percentages(
             &self,
             quorum_number: u32,
-            _svc_manager_addr: Address,
         ) -> Result<u8, VerificationError> {
             let func_selector = ethabi::short_signature("quorumAdversaryThresholdPercentages", &[]);
             let data = func_selector.to_vec();
@@ -72,10 +69,7 @@ mod test {
             Ok(0)
         }
 
-        async fn required_quorum_numbers(
-            &self,
-            _svc_manager_addr: Address,
-        ) -> Result<Vec<u8>, VerificationError> {
+        async fn required_quorum_numbers(&self) -> Result<Vec<u8>, VerificationError> {
             let func_selector = ethabi::short_signature("quorumNumbersRequired", &[]);
             let data = func_selector.to_vec();
 
@@ -91,10 +85,11 @@ mod test {
     #[tokio::test]
     async fn test_verify_commitment() {
         let cfg = EigenConfig::default();
-        let eth_client = EthClient::new(SecretUrl::new(
-            Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap(),
-        ));
-        let verifier = Verifier::new(cfg, Arc::new(eth_client)).await.unwrap();
+        let eth_client = EthClient::new(
+            SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()),
+            cfg.eigenda_svc_manager_address,
+        );
+        let verifier = Verifier::new(cfg, eth_client).await.unwrap();
         let commitment = G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
@@ -116,7 +111,7 @@ mod test {
     async fn test_verify_commitment_mocked() {
         let cfg = EigenConfig::default();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = Verifier::new(cfg, Arc::new(signing_client)).await.unwrap();
+        let verifier = Verifier::new(cfg, signing_client).await.unwrap();
         let commitment = G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
@@ -136,10 +131,11 @@ mod test {
     #[tokio::test]
     async fn test_verify_merkle_proof() {
         let cfg = EigenConfig::default();
-        let eth_client = EthClient::new(SecretUrl::new(
-            Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap(),
-        ));
-        let verifier = Verifier::new(cfg, Arc::new(eth_client)).await.unwrap();
+        let eth_client = EthClient::new(
+            SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()),
+            cfg.eigenda_svc_manager_address,
+        );
+        let verifier = Verifier::new(cfg, eth_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -222,7 +218,7 @@ mod test {
     async fn test_verify_merkle_proof_mocked() {
         let cfg = EigenConfig::default();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = Verifier::new(cfg, Arc::new(signing_client)).await.unwrap();
+        let verifier = Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -303,10 +299,11 @@ mod test {
     #[tokio::test]
     async fn test_hash_blob_header() {
         let cfg = EigenConfig::default();
-        let eth_client = EthClient::new(SecretUrl::new(
-            Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap(),
-        ));
-        let verifier = Verifier::new(cfg, Arc::new(eth_client)).await.unwrap();
+        let eth_client = EthClient::new(
+            SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()),
+            cfg.eigenda_svc_manager_address,
+        );
+        let verifier = Verifier::new(cfg, eth_client).await.unwrap();
         let blob_header = BlobHeader {
             commitment: G1Commitment {
                 x: vec![
@@ -345,7 +342,7 @@ mod test {
     async fn test_hash_blob_header_mocked() {
         let cfg = EigenConfig::default();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = Verifier::new(cfg, Arc::new(signing_client)).await.unwrap();
+        let verifier = Verifier::new(cfg, signing_client).await.unwrap();
         let blob_header = BlobHeader {
             commitment: G1Commitment {
                 x: vec![
@@ -382,10 +379,11 @@ mod test {
     #[tokio::test]
     async fn test_inclusion_proof() {
         let cfg = EigenConfig::default();
-        let eth_client = EthClient::new(SecretUrl::new(
-            Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap(),
-        ));
-        let verifier = Verifier::new(cfg, Arc::new(eth_client)).await.unwrap();
+        let eth_client = EthClient::new(
+            SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()),
+            cfg.eigenda_svc_manager_address,
+        );
+        let verifier = Verifier::new(cfg, eth_client).await.unwrap();
         let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
         let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
             .unwrap();
@@ -406,7 +404,7 @@ mod test {
     async fn test_inclusion_proof_mocked() {
         let cfg = EigenConfig::default();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = Verifier::new(cfg, Arc::new(signing_client)).await.unwrap();
+        let verifier = Verifier::new(cfg, signing_client).await.unwrap();
         let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
         let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
             .unwrap();
@@ -425,10 +423,11 @@ mod test {
     #[tokio::test]
     async fn test_verify_batch() {
         let cfg = EigenConfig::default();
-        let eth_client = EthClient::new(SecretUrl::new(
-            Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap(),
-        ));
-        let verifier = Verifier::new(cfg, Arc::new(eth_client)).await.unwrap();
+        let eth_client = EthClient::new(
+            SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()),
+            cfg.eigenda_svc_manager_address,
+        );
+        let verifier = Verifier::new(cfg, eth_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -523,7 +522,7 @@ mod test {
 
         let cfg = EigenConfig::default();
         let signing_client = MockVerifierClient::new(mock_replies);
-        let verifier = Verifier::new(cfg, Arc::new(signing_client)).await.unwrap();
+        let verifier = Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -604,10 +603,11 @@ mod test {
     #[tokio::test]
     async fn test_verify_security_params() {
         let cfg = EigenConfig::default();
-        let eth_client = EthClient::new(SecretUrl::new(
-            Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap(),
-        ));
-        let verifier = Verifier::new(cfg, Arc::new(eth_client)).await.unwrap();
+        let eth_client = EthClient::new(
+            SecretUrl::new(Url::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()),
+            cfg.eigenda_svc_manager_address,
+        );
+        let verifier = Verifier::new(cfg, eth_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -710,7 +710,7 @@ mod test {
 
         let cfg = EigenConfig::default();
         let signing_client = MockVerifierClient::new(mock_replies);
-        let verifier = Verifier::new(cfg, Arc::new(signing_client)).await.unwrap();
+        let verifier = Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {

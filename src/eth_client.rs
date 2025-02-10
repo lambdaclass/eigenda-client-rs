@@ -69,14 +69,16 @@ pub(crate) struct RpcRequest {
 pub(crate) struct EthClient {
     client: reqwest::Client,
     pub(crate) url: SecretUrl,
+    pub(crate) svc_manager_addr: Address,
 }
 
 impl EthClient {
     /// Creates a new EthClient
-    pub(crate) fn new(url: SecretUrl) -> Self {
+    pub(crate) fn new(url: SecretUrl, svc_manager_addr: Address) -> Self {
         Self {
             client: reqwest::Client::new(),
             url,
+            svc_manager_addr,
         }
     }
 

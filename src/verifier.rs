@@ -226,7 +226,7 @@ impl<T: SvcManagerClient> Verifier<T> {
     }
 
     async fn get_points(cfg: &EigenConfig) -> Result<(PointFile, PointFile), VerificationError> {
-        match &cfg.points_source {
+        match &cfg.srs_points_source {
             SrsPointsSource::Path(path) => Ok((
                 PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G1POINT))),
                 PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G2POINT))),

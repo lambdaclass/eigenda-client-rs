@@ -58,7 +58,7 @@ pub struct EigenConfig {
     /// Authenticated dispersal
     pub authenticated: bool,
     /// Points source
-    pub points_source: SrsPointsSource,
+    pub srs_points_source: SrsPointsSource,
 }
 
 /// Contains the private key

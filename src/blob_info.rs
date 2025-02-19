@@ -10,7 +10,7 @@ use super::{
     },
 };
 
-/// Internal of BlobInfo
+/// Internal of BlobInfo (aka EigenDACertV1)
 /// Contains the KZG Commitment
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct G1Commitment {
@@ -27,15 +27,15 @@ impl From<DisperserG1Commitment> for G1Commitment {
     }
 }
 
-/// Internal of BlobInfo
-/// Contains data related to the blob quorums  
+/// Internal of BlobInfo (aka EigenDACertV1)
+/// Contains data related to the blob quorums
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlobQuorumParam {
     /// The ID of the quorum.
     pub quorum_number: u32,
     /// The max percentage of stake within the quorum that can be held by or delegated to adversarial operators.
     pub adversary_threshold_percentage: u32,
-    /// The min percentage of stake that must attest in order to consider the dispersal successful.    
+    /// The min percentage of stake that must attest in order to consider the dispersal successful.
     pub confirmation_threshold_percentage: u32,
     /// The length of each chunk in bn254 field elements (32 bytes each).
     pub chunk_length: u32,
@@ -52,7 +52,7 @@ impl From<DisperserBlobQuorumParam> for BlobQuorumParam {
     }
 }
 
-/// Internal of BlobInfo
+/// Internal of BlobInfo (aka EigenDACertV1)
 /// Contains the blob header data
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobHeader {
@@ -81,7 +81,7 @@ impl TryFrom<DisperserBlobHeader> for BlobHeader {
     }
 }
 
-/// Internal of BlobInfo
+/// Internal of BlobInfo (aka EigenDACertV1)
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BatchHeader {
     pub(crate) batch_root: Vec<u8>,
@@ -101,7 +101,7 @@ impl From<DisperserBatchHeader> for BatchHeader {
     }
 }
 
-/// Internal of BlobInfo
+/// Internal of BlobInfo (aka EigenDACertV1)
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BatchMetadata {
     pub(crate) batch_header: BatchHeader,
@@ -128,7 +128,7 @@ impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
     }
 }
 
-/// Internal of BlobInfo
+/// Internal of BlobInfo (aka EigenDACertV1)
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobVerificationProof {
     pub(crate) batch_id: u32,
@@ -153,7 +153,7 @@ impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
     }
 }
 
-/// Data returned by the disperser when a blob is dispersed
+/// Data returned by the disperser when a blob is dispersed (aka EigenDACertV1)
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobInfo {
     pub(crate) blob_header: BlobHeader,

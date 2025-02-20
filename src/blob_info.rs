@@ -180,9 +180,6 @@ impl BatchMetadata {
         let batch_header = Token::Tuple(self.batch_header.to_tokens());
         let signatory_record_hash = Token::FixedBytes(self.signatory_record_hash.clone());
         let confirmation_block_number = Token::Uint(U256::from(self.confirmation_block_number));
-
-        // TODO: necessary for blob retrieval of `get_all_blobs`
-        // Remove?
         let batch_header_hash = Token::Bytes(self.batch_header_hash.clone());
         let fee = Token::Bytes(self.fee.clone());
 

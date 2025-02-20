@@ -36,8 +36,9 @@ impl PartialEq for SecretUrl {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SrsPointsSource {
+    /// Path to the SRS points file, it should have both g1 and power of g2 points
     Path(String),
-    /// g1_url, g2_url
+    /// Urls to g1 and power of g2 points
     Url((String, String)),
 }
 

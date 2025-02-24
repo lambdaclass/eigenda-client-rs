@@ -46,7 +46,7 @@ pub struct BlobQuorumParam {
     pub quorum_number: u32,
     /// The max percentage of stake within the quorum that can be held by or delegated to adversarial operators.
     pub adversary_threshold_percentage: u32,
-    /// The min percentage of stake that must attest in order to consider the dispersal successful.    
+    /// The min percentage of stake that must attest in order to consider the dispersal successful.
     pub confirmation_threshold_percentage: u32,
     /// The length of each chunk in bn254 field elements (32 bytes each).
     pub chunk_length: u32,

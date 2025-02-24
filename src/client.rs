@@ -15,7 +15,7 @@ use std::{str::FromStr, sync::Arc};
 /// It can be used as extra verification if you also store the blob yourself.
 #[async_trait]
 pub trait BlobProvider: std::fmt::Debug + Send + Sync {
-    /// Returns the blob data for the given blob_id.
+    /// Returns the blob for the given blob_id.
     /// If the blob is not found, it should return None.
     async fn get_blob(
         &self,

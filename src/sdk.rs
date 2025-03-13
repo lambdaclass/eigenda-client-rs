@@ -83,7 +83,10 @@ impl RawEigenClient {
         let padded_data = convert_by_padding_empty_byte(&data);
         let request = disperser::DisperseBlobRequest {
             data: padded_data,
-            custom_quorum_numbers: vec![],
+            custom_quorum_numbers: match self.config.custom_quorum_numbers.clone() {
+                Some(custom_quorum_numbers) => custom_quorum_numbers,
+                None => vec![],
+            },
             account_id: String::default(), // Account Id is not used in non-authenticated mode
         };
 
@@ -236,7 +239,10 @@ impl RawEigenClient {
         let req = disperser::AuthenticatedRequest {
             payload: Some(DisperseRequest(disperser::DisperseBlobRequest {
                 data,
-                custom_quorum_numbers: vec![],
+                custom_quorum_numbers: match self.config.custom_quorum_numbers.clone() {
+                    Some(custom_quorum_numbers) => custom_quorum_numbers,
+                    None => vec![],
+                },
                 account_id: get_account_id(&self.private_key),
             })),
         };

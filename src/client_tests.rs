@@ -227,7 +227,7 @@ mod tests {
         assert_eq!(retrieved_data.unwrap(), data);
     }
 
-    // #[ignore = "depends on external RPC"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_custom_quorum_numbers() {

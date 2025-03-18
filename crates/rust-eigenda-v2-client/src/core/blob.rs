@@ -4,7 +4,6 @@ use std::error::Error;
 
 use super::{encoded_payload::EncodedPayload, payload::Payload};
 
-
 const BYTES_PER_SYMBOL: usize = 32;
 
 #[derive(Debug, Clone, Copy)]
@@ -134,15 +133,22 @@ mod tests {
     use super::PolynomialForm;
 
     fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: &PolynomialForm) {
-        let blob: Blob = Payload{bytes: payload_bytes.clone()}.to_blob(); // todo: NewPayload(payloadBytes).ToBlob(payloadForm)
-        let blob_deserialized = Blob::deserialize_blob(blob.serialize(), blob.blob_length_symbols).unwrap();
+        let blob: Blob = Payload {
+            bytes: payload_bytes.clone(),
+        }
+        .to_blob(); // todo: NewPayload(payloadBytes).ToBlob(payloadForm)
+        let blob_deserialized =
+            Blob::deserialize_blob(blob.serialize(), blob.blob_length_symbols).unwrap();
 
-        let payload_from_blob = blob.to_payload(payload_form).unwrap(); 
+        let payload_from_blob = blob.to_payload(payload_form).unwrap();
 
         let payload_from_deserialized_blob = blob_deserialized.to_payload(payload_form).unwrap();
 
-        assert_eq!(payload_from_blob.serialize(), payload_from_deserialized_blob.serialize());
-        assert_eq!(payload_bytes,payload_from_blob.serialize());
+        assert_eq!(
+            payload_from_blob.serialize(),
+            payload_from_deserialized_blob.serialize()
+        );
+        assert_eq!(payload_bytes, payload_from_blob.serialize());
     }
 
     fn test_blob_conversion(original_data: &[u8]) {

@@ -8,7 +8,10 @@ pub struct Payload {
 impl Payload {
     pub fn to_blob(&self) -> Blob {
         // todo
-        Blob { coeff_polynomial: vec![], blob_length_symbols: 0 }
+        Blob {
+            coeff_polynomial: vec![],
+            blob_length_symbols: 0,
+        }
     }
 
     pub fn serialize(&self) -> Vec<u8> {

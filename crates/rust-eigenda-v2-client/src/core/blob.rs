@@ -4,8 +4,10 @@ use std::error::Error;
 
 use super::{encoded_payload::EncodedPayload, payload::Payload};
 
+
 const BYTES_PER_SYMBOL: usize = 32;
 
+#[derive(Debug, Clone, Copy)]
 pub enum PolynomialForm {
     CoeffForm,
     EvalForm,
@@ -59,7 +61,7 @@ impl Blob {
     ///
     /// The payloadForm indicates how payloads are interpreted. The way that payloads are interpreted dictates what
     /// conversion, if any, must be performed when creating a payload from the blob.
-    pub fn to_payload(&self, payload_form: PolynomialForm) -> Result<Payload, Box<dyn Error>> {
+    pub fn to_payload(&self, payload_form: &PolynomialForm) -> Result<Payload, Box<dyn Error>> {
         let encoded_payload = self.to_encoded_payload(payload_form)?;
         Ok(encoded_payload.decode())
     }
@@ -99,7 +101,7 @@ impl Blob {
     /// conversion, if any, must be performed when creating an encoded payload from the blob.
     pub fn to_encoded_payload(
         &self,
-        payload_form: PolynomialForm,
+        payload_form: &PolynomialForm,
     ) -> Result<EncodedPayload, Box<dyn Error>> {
         let payload_elements = match payload_form {
             PolynomialForm::CoeffForm => self.coeff_polynomial.clone(),
@@ -120,5 +122,39 @@ impl Blob {
             .ok_or("Failed to construct domain for FFT".to_string())?
             .fft(&self.coeff_polynomial);
         Ok(evals)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use crate::core::{blob::Blob, payload::Payload};
+
+    use super::PolynomialForm;
+
+    fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: &PolynomialForm) {
+        let blob: Blob = Payload{bytes: payload_bytes.clone()}.to_blob(); // todo: NewPayload(payloadBytes).ToBlob(payloadForm)
+        let blob_deserialized = Blob::deserialize_blob(blob.serialize(), blob.blob_length_symbols).unwrap();
+
+        let payload_from_blob = blob.to_payload(payload_form).unwrap(); 
+
+        let payload_from_deserialized_blob = blob_deserialized.to_payload(payload_form).unwrap();
+
+        assert_eq!(payload_from_blob.serialize(), payload_from_deserialized_blob.serialize());
+        assert_eq!(payload_bytes,payload_from_blob.serialize());
+    }
+
+    fn test_blob_conversion(original_data: &[u8]) {
+        blob_conversion_for_form(original_data.to_vec(), &PolynomialForm::CoeffForm);
+        blob_conversion_for_form(original_data.to_vec(), &PolynomialForm::EvalForm);
+    }
+
+    proptest! {
+
+        #[test]
+        fn fuzz_blob_conversion(original_data in prop::collection::vec(any::<u8>(), 0..1000)) {
+            test_blob_conversion(&original_data);
+        }
     }
 }

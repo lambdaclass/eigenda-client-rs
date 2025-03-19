@@ -97,16 +97,14 @@ impl Blob {
         payload_form: &PayloadForm,
     ) -> Result<EncodedPayload, Box<dyn Error>> {
         let payload_elements = match payload_form {
-            PayloadForm::Coeff=> self.coeff_polynomial.clone(),
+            PayloadForm::Coeff => self.coeff_polynomial.clone(),
             PayloadForm::Eval => self.compute_eval_poly()?,
         };
 
         let max_possible_payload_length =
             self.get_max_permissible_payloadlength(self.blob_length_symbols)?;
-        EncodedPayload::from_field_elements(
-            &payload_elements,
-            max_possible_payload_length as u32,
-        ).map_err(|e| e.into())
+        EncodedPayload::from_field_elements(&payload_elements, max_possible_payload_length as u32)
+            .map_err(|e| e.into())
     }
 
     /// computeEvalPoly converts a blob's coeffPoly to an evalPoly, using the FFT operation
@@ -125,7 +123,9 @@ mod tests {
     use crate::core::{blob::Blob, payload::Payload, PayloadForm};
 
     fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: &PayloadForm) {
-        let blob: Blob = Payload::new(payload_bytes.clone()).to_blob(*payload_form).unwrap();
+        let blob: Blob = Payload::new(payload_bytes.clone())
+            .to_blob(*payload_form)
+            .unwrap();
         let blob_deserialized =
             Blob::deserialize_blob(blob.serialize(), blob.blob_length_symbols).unwrap();
 

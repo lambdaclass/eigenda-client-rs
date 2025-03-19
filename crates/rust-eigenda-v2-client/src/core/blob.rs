@@ -2,6 +2,8 @@ use ark_bn254::Fr;
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use std::error::Error;
 
+use crate::utils::coeff_to_eval_poly;
+
 use super::{encoded_payload::EncodedPayload, payload::Payload, PayloadForm, BYTES_PER_SYMBOL};
 
 /// Blob is data that is dispersed on eigenDA.
@@ -97,21 +99,13 @@ impl Blob {
     ) -> Result<EncodedPayload, Box<dyn Error>> {
         let payload_elements = match payload_form {
             PayloadForm::Coeff => self.coeff_polynomial.clone(),
-            PayloadForm::Eval => self.compute_eval_poly()?,
+            PayloadForm::Eval => coeff_to_eval_poly(self.coeff_polynomial.clone(),self.blob_length_symbols)?,
         };
 
         let max_possible_payload_length =
             self.get_max_permissible_payloadlength(self.blob_length_symbols)?;
         EncodedPayload::from_field_elements(&payload_elements, max_possible_payload_length)
             .map_err(|e| e.into())
-    }
-
-    /// computeEvalPoly converts a blob's coeffPoly to an evalPoly, using the FFT operation
-    fn compute_eval_poly(&self) -> Result<Vec<Fr>, Box<dyn Error>> {
-        let evals = GeneralEvaluationDomain::<Fr>::new(self.blob_length_symbols)
-            .ok_or("Failed to construct domain for FFT".to_string())?
-            .fft(&self.coeff_polynomial);
-        Ok(evals)
     }
 }
 

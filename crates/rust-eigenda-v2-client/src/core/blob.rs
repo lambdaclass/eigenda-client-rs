@@ -55,7 +55,7 @@ impl Blob {
     ///
     /// The payloadForm indicates how payloads are interpreted. The way that payloads are interpreted dictates what
     /// conversion, if any, must be performed when creating a payload from the blob.
-    pub fn to_payload(&self, payload_form: &PayloadForm) -> Result<Payload, Box<dyn Error>> {
+    pub fn to_payload(&self, payload_form: PayloadForm) -> Result<Payload, Box<dyn Error>> {
         let encoded_payload = self.to_encoded_payload(payload_form)?;
         encoded_payload.decode().map_err(|e| e.into())
     }
@@ -95,7 +95,7 @@ impl Blob {
     /// conversion, if any, must be performed when creating an encoded payload from the blob.
     pub fn to_encoded_payload(
         &self,
-        payload_form: &PayloadForm,
+        payload_form: PayloadForm,
     ) -> Result<EncodedPayload, Box<dyn Error>> {
         let payload_elements = match payload_form {
             PayloadForm::Coeff => self.coeff_polynomial.clone(),
@@ -123,9 +123,9 @@ mod tests {
 
     use crate::core::{blob::Blob, payload::Payload, PayloadForm};
 
-    fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: &PayloadForm) {
+    fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: PayloadForm) {
         let blob: Blob = Payload::new(payload_bytes.clone())
-            .to_blob(*payload_form)
+            .to_blob(payload_form)
             .unwrap();
         let blob_deserialized =
             Blob::deserialize_blob(blob.serialize(), blob.blob_length_symbols).unwrap();
@@ -142,8 +142,8 @@ mod tests {
     }
 
     fn test_blob_conversion(original_data: &[u8]) {
-        blob_conversion_for_form(original_data.to_vec(), &PayloadForm::Coeff);
-        blob_conversion_for_form(original_data.to_vec(), &PayloadForm::Eval);
+        blob_conversion_for_form(original_data.to_vec(), PayloadForm::Coeff);
+        blob_conversion_for_form(original_data.to_vec(), PayloadForm::Eval);
     }
 
     proptest! {

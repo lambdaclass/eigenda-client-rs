@@ -223,7 +223,10 @@ mod tests {
     #[test]
     fn test_encoding_decoding() {
         // TODO: add proptest
-        let payload = Payload::new(vec![1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]);
+        let payload = Payload::new(vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ]);
         let encoded_payload = EncodedPayload::new(&payload);
         assert!(encoded_payload.is_ok());
 
@@ -270,7 +273,7 @@ mod tests {
 
         // Create an extended version by appending 33 bytes (all zeros)
         let mut extended_bytes = encoded_payload.bytes.clone();
-        extended_bytes.extend_from_slice(&vec![0u8; 33]);
+        extended_bytes.extend_from_slice(&[0u8; 33]);
 
         let extended_payload = EncodedPayload {
             bytes: extended_bytes,
@@ -286,7 +289,11 @@ mod tests {
     #[test]
     fn test_from_to_field_elements() {
         // TODO: add proptest
-        let payload = Payload::new("0123456789012345678901234567890123".to_string().into_bytes());
+        let payload = Payload::new(
+            "0123456789012345678901234567890123"
+                .to_string()
+                .into_bytes(),
+        );
         let encoded_payload = EncodedPayload::new(&payload).unwrap();
 
         let field_elements = encoded_payload.to_field_elements();

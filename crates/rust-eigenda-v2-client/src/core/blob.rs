@@ -2,9 +2,7 @@ use ark_bn254::Fr;
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use std::error::Error;
 
-use super::{encoded_payload::EncodedPayload, payload::Payload, PayloadForm};
-
-const BYTES_PER_SYMBOL: usize = 32;
+use super::{encoded_payload::EncodedPayload, payload::Payload, PayloadForm, BYTES_PER_SYMBOL};
 
 /// Blob is data that is dispersed on eigenDA.
 ///
@@ -104,7 +102,7 @@ impl Blob {
 
         let max_possible_payload_length =
             self.get_max_permissible_payloadlength(self.blob_length_symbols)?;
-        EncodedPayload::from_field_elements(&payload_elements, max_possible_payload_length as u32)
+        EncodedPayload::from_field_elements(&payload_elements, max_possible_payload_length)
             .map_err(|e| e.into())
     }
 

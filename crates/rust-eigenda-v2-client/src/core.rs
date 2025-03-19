@@ -6,7 +6,7 @@ pub use blob::Blob;
 pub use encoded_payload::EncodedPayload;
 pub use payload::Payload;
 
-pub(crate) const BYTES_PER_SYMBOL: u8 = 32;
+pub(crate) const BYTES_PER_SYMBOL: usize = 32;
 
 /// Payload encoding version
 #[derive(Debug, PartialEq)]

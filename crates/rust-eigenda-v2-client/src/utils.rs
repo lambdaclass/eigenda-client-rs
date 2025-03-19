@@ -6,10 +6,10 @@ use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 /// blob_length_symbols is required, to be able to choose the correct parameters when performing FFT
 pub(crate) fn eval_to_coeff_poly(
     eval_poly: Vec<Fr>,
-    blob_length_symbols: u32,
+    blob_length_symbols: usize,
 ) -> Result<Vec<Fr>, String> {
     Ok(
-        GeneralEvaluationDomain::<Fr>::new(blob_length_symbols as usize)
+        GeneralEvaluationDomain::<Fr>::new(blob_length_symbols)
             .ok_or("Failed to create domain")?
             .ifft(&eval_poly),
     )

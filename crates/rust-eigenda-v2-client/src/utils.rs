@@ -11,6 +11,6 @@ pub(crate) fn eval_to_coeff_poly(
     Ok(
         GeneralEvaluationDomain::<Fr>::new(blob_length_symbols as usize)
             .ok_or("Failed to create domain")?
-            .fft(&eval_poly),
+            .ifft(&eval_poly),
     )
 }

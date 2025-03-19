@@ -9,6 +9,7 @@ const BYTES_PER_SYMBOL: usize = 32;
 /// Blob is data that is dispersed on eigenDA.
 ///
 /// A Blob is represented under the hood by an array of field elements, which represent a polynomial in coefficient form
+#[derive(Debug, PartialEq)]
 pub struct Blob {
     pub coeff_polynomial: Vec<Fr>,
     /// blobLengthSymbols must be a power of 2, and should match the blobLength claimed in the BlobCommitment
@@ -46,7 +47,7 @@ impl Blob {
     pub fn serialize(&self) -> Vec<u8> {
         rust_kzg_bn254_primitives::helpers::to_byte_array(
             &self.coeff_polynomial,
-            self.blob_length_symbols,
+            self.blob_length_symbols * BYTES_PER_SYMBOL,
         )
     }
 

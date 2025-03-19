@@ -200,7 +200,7 @@ fn pad_to_bn254(data: &[u8]) -> Vec<u8> {
     let pre_padded_payload = [data, &vec![0u8; required_pad]].concat();
 
     for elem in 0..output_length / 32 {
-        let zero_byte_index = elem * bytes_per_chunk;
+        let zero_byte_index = elem * BYTES_PER_SYMBOL as usize;
         padded_output[zero_byte_index] = 0x00;
 
         let destination_index = zero_byte_index + 1;
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn test_encoding_decoding() {
         // TODO: add proptest
-        let payload = Payload::new("hello world".to_string().into_bytes());
+        let payload = Payload::new(vec![1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]);
         let encoded_payload = EncodedPayload::new(&payload);
         assert!(encoded_payload.is_ok());
 
@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn test_from_to_field_elements() {
         // TODO: add proptest
-        let payload = Payload::new("hello world".to_string().into_bytes());
+        let payload = Payload::new("0123456789012345678901234567890123".to_string().into_bytes());
         let encoded_payload = EncodedPayload::new(&payload).unwrap();
 
         let field_elements = encoded_payload.to_field_elements();

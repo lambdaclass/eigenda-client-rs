@@ -15,6 +15,7 @@ exclude = [
 ]
 
 [dependencies]
+rand = { workspace = true }
 bytes = { workspace = true}
 reqwest = { workspace = true }
 serde = { workspace = true }
@@ -33,8 +34,9 @@ ethereum-types = { workspace = true }
 prost = { workspace = true }
 tonic = { workspace = true }
 tokio-stream = { workspace = true }
-rust-kzg-bn254-primitives = "0.1.0"
-rust-kzg-bn254-verifier = "0.1.0"
-ark-bn254 = "0.5.0"
-ark-poly = "0.5.0"
-proptest = "1.4"
+ark-bn254 = { workspace = true }
+rust-kzg-bn254-primitives = { workspace = true }
+rust-kzg-bn254-verifier = { workspace = true }
+ark-poly = { workspace = true }
+proptest = "1.4" # todo
+ark-ff = "0.5.0" 

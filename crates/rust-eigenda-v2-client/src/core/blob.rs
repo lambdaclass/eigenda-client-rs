@@ -2,15 +2,9 @@ use ark_bn254::Fr;
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use std::error::Error;
 
-use super::{encoded_payload::EncodedPayload, payload::Payload};
+use super::{encoded_payload::EncodedPayload, payload::Payload, PayloadForm};
 
 const BYTES_PER_SYMBOL: usize = 32;
-
-#[derive(Debug, Clone, Copy)]
-pub enum PolynomialForm {
-    CoeffForm,
-    EvalForm,
-}
 
 /// Blob is data that is dispersed on eigenDA.
 ///
@@ -60,9 +54,9 @@ impl Blob {
     ///
     /// The payloadForm indicates how payloads are interpreted. The way that payloads are interpreted dictates what
     /// conversion, if any, must be performed when creating a payload from the blob.
-    pub fn to_payload(&self, payload_form: &PolynomialForm) -> Result<Payload, Box<dyn Error>> {
+    pub fn to_payload(&self, payload_form: &PayloadForm) -> Result<Payload, Box<dyn Error>> {
         let encoded_payload = self.to_encoded_payload(payload_form)?;
-        Ok(encoded_payload.decode())
+        encoded_payload.decode().map_err(|e| e.into())
     }
 
     /// GetUnpaddedDataLength accepts the length of an array that has been padded with PadPayload
@@ -100,19 +94,19 @@ impl Blob {
     /// conversion, if any, must be performed when creating an encoded payload from the blob.
     pub fn to_encoded_payload(
         &self,
-        payload_form: &PolynomialForm,
+        payload_form: &PayloadForm,
     ) -> Result<EncodedPayload, Box<dyn Error>> {
         let payload_elements = match payload_form {
-            PolynomialForm::CoeffForm => self.coeff_polynomial.clone(),
-            PolynomialForm::EvalForm => self.compute_eval_poly()?,
+            PayloadForm::Coeff=> self.coeff_polynomial.clone(),
+            PayloadForm::Eval => self.compute_eval_poly()?,
         };
 
         let max_possible_payload_length =
             self.get_max_permissible_payloadlength(self.blob_length_symbols)?;
-        Ok(EncodedPayload::encoded_payload_from_elements(
-            payload_elements,
-            max_possible_payload_length,
-        ))
+        EncodedPayload::from_field_elements(
+            &payload_elements,
+            max_possible_payload_length as u32,
+        ).map_err(|e| e.into())
     }
 
     /// computeEvalPoly converts a blob's coeffPoly to an evalPoly, using the FFT operation
@@ -128,15 +122,10 @@ impl Blob {
 mod tests {
     use proptest::prelude::*;
 
-    use crate::core::{blob::Blob, payload::Payload};
+    use crate::core::{blob::Blob, payload::Payload, PayloadForm};
 
-    use super::PolynomialForm;
-
-    fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: &PolynomialForm) {
-        let blob: Blob = Payload {
-            bytes: payload_bytes.clone(),
-        }
-        .to_blob(); // todo: NewPayload(payloadBytes).ToBlob(payloadForm)
+    fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: &PayloadForm) {
+        let blob: Blob = Payload::new(payload_bytes.clone()).to_blob(*payload_form).unwrap();
         let blob_deserialized =
             Blob::deserialize_blob(blob.serialize(), blob.blob_length_symbols).unwrap();
 
@@ -152,8 +141,8 @@ mod tests {
     }
 
     fn test_blob_conversion(original_data: &[u8]) {
-        blob_conversion_for_form(original_data.to_vec(), &PolynomialForm::CoeffForm);
-        blob_conversion_for_form(original_data.to_vec(), &PolynomialForm::EvalForm);
+        blob_conversion_for_form(original_data.to_vec(), &PayloadForm::Coeff);
+        blob_conversion_for_form(original_data.to_vec(), &PayloadForm::Eval);
     }
 
     proptest! {

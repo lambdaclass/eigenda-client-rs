@@ -1,5 +1,4 @@
 use ark_bn254::Fr;
-use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use std::error::Error;
 
 use crate::utils::coeff_to_eval_poly;
@@ -99,7 +98,9 @@ impl Blob {
     ) -> Result<EncodedPayload, Box<dyn Error>> {
         let payload_elements = match payload_form {
             PayloadForm::Coeff => self.coeff_polynomial.clone(),
-            PayloadForm::Eval => coeff_to_eval_poly(self.coeff_polynomial.clone(),self.blob_length_symbols)?,
+            PayloadForm::Eval => {
+                coeff_to_eval_poly(self.coeff_polynomial.clone(), self.blob_length_symbols)?
+            }
         };
 
         let max_possible_payload_length =

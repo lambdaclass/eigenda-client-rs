@@ -98,7 +98,7 @@ impl EncodedPayload {
             }
         };
 
-        if payload_length > max_payload_length as u32{
+        if payload_length > max_payload_length as u32 {
             return Err(
                 "Invalid serialized field elements: payload length is greater than maximum allowed"
                     .to_string(),

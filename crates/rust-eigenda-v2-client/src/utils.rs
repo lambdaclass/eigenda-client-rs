@@ -8,11 +8,9 @@ pub(crate) fn eval_to_coeff_poly(
     eval_poly: Vec<Fr>,
     blob_length_symbols: usize,
 ) -> Result<Vec<Fr>, String> {
-    Ok(
-        GeneralEvaluationDomain::<Fr>::new(blob_length_symbols)
-            .ok_or("Failed to create domain")?
-            .ifft(&eval_poly),
-    )
+    Ok(GeneralEvaluationDomain::<Fr>::new(blob_length_symbols)
+        .ok_or("Failed to create domain")?
+        .ifft(&eval_poly))
 }
 
 /// computeEvalPoly converts a blob's coeffPoly to an evalPoly, using the FFT operation

@@ -38,7 +38,7 @@ impl Payload {
 
         Ok(Blob {
             coeff_polynomial,
-            blob_length_symbols: blob_length_symbols,
+            blob_length_symbols,
         })
     }
 

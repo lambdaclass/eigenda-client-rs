@@ -1,10 +1,16 @@
 mod blob;
 mod encoded_payload;
 mod payload;
+mod blob_request_signer;
+mod blob_header;
+mod payment_metadata;
 
 pub use blob::Blob;
 pub use encoded_payload::EncodedPayload;
 pub use payload::Payload;
+pub use blob_request_signer::{BlobRequestSigner, LocalBlobRequestSigner};
+pub use blob_header::BlobHeader;
+pub use payment_metadata::PaymentMetadata;
 
 pub(crate) const BYTES_PER_SYMBOL: u8 = 32;
 

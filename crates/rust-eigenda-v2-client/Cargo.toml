@@ -39,3 +39,4 @@ ark-ff = "0.5.0"
 rust-kzg-bn254-primitives = { workspace = true }
 rust-kzg-bn254-verifier = { workspace = true }
 ark-poly = { workspace = true }
+num-bigint = { workspace = true }

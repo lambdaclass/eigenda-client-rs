@@ -3,7 +3,7 @@ use std::error::Error;
 
 use crate::utils::coeff_to_eval_poly;
 
-use super::{encoded_payload::EncodedPayload, payload::Payload, PayloadForm, BYTES_PER_SYMBOL};
+use crate::core::{EncodedPayload, Payload, PayloadForm, BYTES_PER_SYMBOL};
 
 /// Blob is data that is dispersed on eigenDA.
 ///
@@ -11,19 +11,19 @@ use super::{encoded_payload::EncodedPayload, payload::Payload, PayloadForm, BYTE
 #[derive(Debug, PartialEq)]
 pub struct Blob {
     pub coeff_polynomial: Vec<Fr>,
-    /// blobLengthSymbols must be a power of 2, and should match the blobLength claimed in the BlobCommitment
+    /// blob_length_symbols must be a power of 2, and should match the blob_length claimed in the blob_commitment
     ///
-    /// This value must be specified, rather than computed from the length of the coeffPolynomial, due to an edge case
+    /// This value must be specified, rather than computed from the length of the coeff_polynomial, due to an edge case
     /// illustrated by the following example: imagine a user disperses a very small blob, only 64 bytes, and the last 40
     /// bytes are trailing zeros. When a different user fetches the blob from a relay, it's possible that the relay could
-    /// truncate the trailing zeros. If we were to say that blobLengthSymbols = nextPowerOf2(len(coeffPolynomial)), then the
+    /// truncate the trailing zeros. If we were to say that blob_length_symbols = next_power_of_2(len(coeff_polynomial)), then the
     /// user fetching and reconstructing this blob would determine that the blob length is 1 symbol, when it's actually 2.
     pub blob_length_symbols: usize,
 }
 
 // todo: use real errors
 impl Blob {
-    /// DeserializeBlob initializes a Blob from bytes
+    /// deserialize_blob initializes a Blob from bytes
     pub fn deserialize_blob(
         bytes: Vec<u8>,
         blob_length_symbols: usize,
@@ -50,18 +50,18 @@ impl Blob {
         )
     }
 
-    /// ToPayload converts the Blob into a Payload
+    /// to_payload converts the Blob into a Payload
     ///
-    /// The payloadForm indicates how payloads are interpreted. The way that payloads are interpreted dictates what
+    /// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
     /// conversion, if any, must be performed when creating a payload from the blob.
     pub fn to_payload(&self, payload_form: PayloadForm) -> Result<Payload, Box<dyn Error>> {
         let encoded_payload = self.to_encoded_payload(payload_form)?;
         encoded_payload.decode().map_err(|e| e.into())
     }
 
-    /// GetUnpaddedDataLength accepts the length of an array that has been padded with PadPayload
+    /// get_unpadded_data_length accepts the length of an array that has been padded with pad_payload
     ///
-    /// It returns what the length of the output array would be, if you called RemoveInternalPadding on it.
+    /// It returns what the length of the output array would be, if you called remove_internal_padding on it.
     fn get_unpadded_data_length(&self, input_len: usize) -> Result<usize, Box<dyn Error>> {
         if input_len % BYTES_PER_SYMBOL != 0 {
             return Err("Input length must be a multiple of 32".into());
@@ -72,7 +72,7 @@ impl Blob {
         Ok(chunck_count * bytes_per_chunk)
     }
 
-    /// GetMaxPermissiblePayloadLength accepts a blob length, and returns the size IN BYTES of the largest payload
+    /// get_max_permissible_payloadlength accepts a blob length, and returns the size IN BYTES of the largest payload
     /// that could fit inside the blob.
     fn get_max_permissible_payloadlength(
         &self,
@@ -88,9 +88,9 @@ impl Blob {
         self.get_unpadded_data_length(blob_length_symbols * BYTES_PER_SYMBOL - 32)
     }
 
-    /// toEncodedPayload creates an encodedPayload from the blob
+    /// to_encoded_payload creates an encoded_payload from the blob
     ///
-    /// The payloadForm indicates how payloads are interpreted. The way that payloads are interpreted dictates what
+    /// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
     /// conversion, if any, must be performed when creating an encoded payload from the blob.
     pub fn to_encoded_payload(
         &self,

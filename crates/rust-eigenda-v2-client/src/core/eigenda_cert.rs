@@ -1,7 +1,7 @@
 use std::u16;
 
 use ark_bn254::{G1Affine, G2Affine};
-use ethabi::{ParamType, Token};
+use ethabi::Token;
 use ethereum_types::U256;
 use tiny_keccak::{Hasher, Keccak};
 
@@ -19,20 +19,29 @@ use crate::generated::{
 };
 
 #[derive(Debug, PartialEq, Clone)]
+// TODO: replace this dummy error with a proper error type
+pub(crate) struct EigenDACertError;
+
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct G1Commitment {
     pub(crate) x: Vec<u8>,
     pub(crate) y: Vec<u8>,
 }
 
-impl From<Vec<u8>> for G1Commitment {
+impl TryFrom<Vec<u8>> for G1Commitment {
+    type Error = EigenDACertError;
+
     // TODO: How many bytes does each field take?
-    // TODO: replace for try_from
-    fn from(value: Vec<u8>) -> Self {
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        if value.len() != 64 {
+            return Err(EigenDACertError);
+        }
+
         let mut x = vec![0u8; 32];
         let mut y = vec![0u8; 32];
         x.copy_from_slice(&value[0..32]);
         y.copy_from_slice(&value[32..64]);
-        G1Commitment { x, y }
+        Ok(G1Commitment { x, y })
     }
 }
 
@@ -44,10 +53,15 @@ pub(crate) struct G2Commitment {
     pub(crate) y_a1: Vec<u8>,
 }
 
-impl From<Vec<u8>> for G2Commitment {
+impl TryFrom<Vec<u8>> for G2Commitment {
+    type Error = EigenDACertError;
+
     // TODO: How many bytes does each field take?
-    // TODO: replace for try_from
-    fn from(value: Vec<u8>) -> Self {
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        if value.len() != 128 {
+            return Err(EigenDACertError);
+        }
+
         let mut x_a0 = vec![0u8; 32];
         let mut x_a1 = vec![0u8; 32];
         let mut y_a0 = vec![0u8; 32];
@@ -56,12 +70,12 @@ impl From<Vec<u8>> for G2Commitment {
         x_a1.copy_from_slice(&value[32..64]);
         y_a0.copy_from_slice(&value[64..96]);
         y_a1.copy_from_slice(&value[96..128]);
-        G2Commitment {
+        Ok(G2Commitment {
             x_a0,
             x_a1,
             y_a0,
             y_a1,
-        }
+        })
     }
 }
 
@@ -83,8 +97,9 @@ impl From<ProtoPaymentHeader> for PaymentHeader {
 }
 
 impl PaymentHeader {
-    pub fn hash(&self) -> [u8; 32] {
-        let cumulative_payment = U256::try_from(self.cumulative_payment.as_slice()).unwrap();
+    pub fn hash(&self) -> Result<[u8; 32], EigenDACertError> {
+        let cumulative_payment =
+            U256::try_from(self.cumulative_payment.as_slice()).map_err(|_| EigenDACertError)?;
         let token = Token::Tuple(vec![
             Token::String(self.account_id.clone()),
             Token::Int(self.timestamp.into()),
@@ -98,7 +113,7 @@ impl PaymentHeader {
         let mut hash = [0u8; 32];
         hasher.finalize(&mut hash);
 
-        hash
+        Ok(hash)
     }
 }
 
@@ -110,19 +125,21 @@ pub(crate) struct BlobCommitment {
     length: u32,
 }
 
-impl From<ProtoBlobCommitment> for BlobCommitment {
-    fn from(value: ProtoBlobCommitment) -> Self {
-        let commitment = G1Commitment::from(value.commitment);
-        let length_commitment = G2Commitment::from(value.length_commitment);
-        let length_proof = G2Commitment::from(value.length_proof);
+impl TryFrom<ProtoBlobCommitment> for BlobCommitment {
+    type Error = EigenDACertError;
+
+    fn try_from(value: ProtoBlobCommitment) -> Result<Self, Self::Error> {
+        let commitment = G1Commitment::try_from(value.commitment)?;
+        let length_commitment = G2Commitment::try_from(value.length_commitment)?;
+        let length_proof = G2Commitment::try_from(value.length_proof)?;
         let length = value.length;
 
-        Self {
+        Ok(Self {
             commitment,
             length_commitment,
             length_proof,
             length,
-        }
+        })
     }
 }
 
@@ -134,29 +151,31 @@ pub(crate) struct V2BlobHeader {
     payment_header_hash: [u8; 32],
 }
 
-impl From<ProtoBlobHeader> for V2BlobHeader {
-    fn from(value: ProtoBlobHeader) -> Self {
+impl TryFrom<ProtoBlobHeader> for V2BlobHeader {
+    type Error = EigenDACertError;
+
+    fn try_from(value: ProtoBlobHeader) -> Result<Self, Self::Error> {
         let version: u16 = match value.version.try_into() {
             Ok(version) => version,
-            Err(_) => panic!("Version is too large"), // TODO: handle error
+            Err(_) => return Err(EigenDACertError),
         };
 
         let mut quorum_numbers: Vec<u8> = Vec::new();
         for number in value.quorum_numbers.iter() {
-            quorum_numbers.push((*number).try_into().unwrap()); // TODO: handle error
+            quorum_numbers.push((*number).try_into().map_err(|_| EigenDACertError)?);
         }
 
-        let commitment = BlobCommitment::from(value.commitment.unwrap()); // TODO: handle error
+        let commitment = BlobCommitment::try_from(value.commitment.ok_or(EigenDACertError)?)?;
 
-        // let payment_header_hash = vec![0u8; 32].try_into().unwrap(); // TODO: handle error
-        let payment_header_hash = PaymentHeader::from(value.payment_header.unwrap()).hash();
+        let payment_header_hash =
+            PaymentHeader::from(value.payment_header.ok_or(EigenDACertError)?).hash()?;
 
-        Self {
+        Ok(Self {
             version,
             quorum_numbers,
             commitment,
             payment_header_hash,
-        }
+        })
     }
 }
 
@@ -167,13 +186,15 @@ pub(crate) struct V2BlobCertificate {
     relay_keys: Vec<u32>,
 }
 
-impl From<ProtoBlobCertificate> for V2BlobCertificate {
-    fn from(value: ProtoBlobCertificate) -> Self {
-        Self {
-            blob_header: V2BlobHeader::from(value.blob_header.unwrap()),
+impl TryFrom<ProtoBlobCertificate> for V2BlobCertificate {
+    type Error = EigenDACertError;
+
+    fn try_from(value: ProtoBlobCertificate) -> Result<Self, Self::Error> {
+        Ok(Self {
+            blob_header: V2BlobHeader::try_from(value.blob_header.ok_or(EigenDACertError)?)?,
             signature: value.signature,
             relay_keys: value.relay_keys,
-        }
+        })
     }
 }
 
@@ -184,13 +205,17 @@ pub(crate) struct BlobInclusionInfo {
     inclusion_proof: Vec<u8>,
 }
 
-impl From<ProtoBlobInclusionInfo> for BlobInclusionInfo {
-    fn from(value: ProtoBlobInclusionInfo) -> Self {
-        Self {
-            blob_certificate: V2BlobCertificate::from(value.blob_certificate.unwrap()), // TODO: handle error (change to try_from)
+impl TryFrom<ProtoBlobInclusionInfo> for BlobInclusionInfo {
+    type Error = EigenDACertError;
+
+    fn try_from(value: ProtoBlobInclusionInfo) -> Result<Self, Self::Error> {
+        Ok(Self {
+            blob_certificate: V2BlobCertificate::try_from(
+                value.blob_certificate.ok_or(EigenDACertError)?,
+            )?,
             blob_index: value.blob_index,
             inclusion_proof: value.inclusion_proof,
-        }
+        })
     }
 }
 
@@ -200,14 +225,19 @@ pub(crate) struct BatchHeaderV2 {
     reference_block_number: u32,
 }
 
-impl From<ProtoBatchHeader> for BatchHeaderV2 {
-    fn from(value: ProtoBatchHeader) -> Self {
-        let batch_root: [u8; 32] = value.batch_root.try_into().unwrap(); // TODO: handle error (change to try_from)
-        let reference_block_number = value.reference_block_number.try_into().unwrap(); // TODO: handle error (change to try_from)
-        Self {
+impl TryFrom<ProtoBatchHeader> for BatchHeaderV2 {
+    type Error = EigenDACertError;
+
+    fn try_from(value: ProtoBatchHeader) -> Result<Self, Self::Error> {
+        let batch_root: [u8; 32] = value.batch_root.try_into().map_err(|_| EigenDACertError)?;
+        let reference_block_number = value
+            .reference_block_number
+            .try_into()
+            .map_err(|_| EigenDACertError)?;
+        Ok(Self {
             batch_root,
             reference_block_number,
-        }
+        })
     }
 }
 
@@ -239,28 +269,28 @@ impl EigenDACert {
     pub(crate) fn new(
         blob_status_reply: BlobStatusReply,
         non_signer_stakes_and_signature: NonSignerStakesAndSignature,
-    ) -> Self {
+    ) -> Result<Self, EigenDACertError> {
         let binding_inclusion_info =
-            BlobInclusionInfo::from(blob_status_reply.blob_inclusion_info.unwrap()); // TODO: handle error
+            BlobInclusionInfo::try_from(blob_status_reply.blob_inclusion_info.ok_or(EigenDACertError)?)?;
 
-        let signed_batch = blob_status_reply.signed_batch.unwrap(); // TODO: handle error
-        let binding_batch_header = BatchHeaderV2::from(signed_batch.header.unwrap()); // TODO: handle error
+        let signed_batch = blob_status_reply.signed_batch.ok_or(EigenDACertError)?;
+        let binding_batch_header = BatchHeaderV2::try_from(signed_batch.header.ok_or(EigenDACertError)?)?;
 
         let mut signed_quorum_numbers: Vec<u8> = Vec::new();
-        for q in signed_batch.attestation.unwrap().quorum_numbers {
-            signed_quorum_numbers.push(q.try_into().unwrap());
+        for q in signed_batch.attestation.ok_or(EigenDACertError)?.quorum_numbers {
+            signed_quorum_numbers.push(q.try_into().map_err(|_| EigenDACertError)?);
         }
 
-        Self {
+        Ok(Self {
             blob_inclusion_info: binding_inclusion_info,
             batch_header: binding_batch_header,
             non_signer_stakes_and_signature,
             signed_quorum_numbers,
-        }
+        })
     }
 
     /// Computes the blob_key of the blob that belongs to the EigenDACert
-    pub(crate) fn compute_blob_key(&self) -> BlobKey {
+    pub(crate) fn compute_blob_key(&self) -> Result<BlobKey, EigenDACertError> {
         let blob_header = self
             .blob_inclusion_info
             .blob_certificate
@@ -274,13 +304,13 @@ impl EigenDACert {
             blob_commitments,
             blob_header.quorum_numbers,
             blob_header.payment_header_hash,
-        );
+        )?;
 
         let blob_key: BlobKey = match blob_key_bytes.try_into() {
             Ok(key) => key,
             Err(_) => panic!("invalid blob key length: expected 32 bytes"),
         };
-        blob_key
+        Ok(blob_key)
     }
 }
 
@@ -302,7 +332,7 @@ fn compute_blob_key_bytes(
     blob_commitments: BlobCommitment,
     quorum_numbers: Vec<u8>,
     payment_metadata_hash: [u8; 32],
-) -> Vec<u8> {
+) -> Result<Vec<u8>, EigenDACertError> {
     let mut sorted_quorums = quorum_numbers;
     sorted_quorums.sort();
 
@@ -380,5 +410,5 @@ fn compute_blob_key_bytes(
     keccak.update(&packed_bytes);
     let mut blob_key = [0u8; 32];
     keccak.finalize(&mut blob_key);
-    blob_key.try_into().unwrap() // TODO: handle error
+    blob_key.try_into().map_err(|_| EigenDACertError)
 }

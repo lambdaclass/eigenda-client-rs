@@ -13,6 +13,23 @@ pub struct G1Commitment {
     #[prost(bytes = "vec", tag = "2")]
     pub y: ::prost::alloc::vec::Vec<u8>,
 }
+// WARNING: This was added manually! Verify that the byte representation is correct.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct G2Commitment {
+    /// The A0 element of the X coordinate of G2 point.
+    #[prost(bytes = "vec", tag = "1")]
+    pub x_a0: ::prost::alloc::vec::Vec<u8>,
+    /// The A1 element of the X coordinate of G2 point.
+    #[prost(bytes = "vec", tag = "2")]
+    pub x_a1: ::prost::alloc::vec::Vec<u8>,
+    /// The A0 element of the Y coordinate of G2 point.
+    #[prost(bytes = "vec", tag = "3")]
+    pub y_a0: ::prost::alloc::vec::Vec<u8>,
+    /// The A1 element of the Y coordinate of G2 point.
+    #[prost(bytes = "vec", tag = "4")]
+    pub y_a1: ::prost::alloc::vec::Vec<u8>,
+}
 /// BlobCommitment represents commitment of a specific blob, containing its
 /// KZG commitment, degree proof, the actual degree, and data length in number of symbols (field elements).
 /// It deserializes into <https://github.com/Layr-Labs/eigenda/blob/ce89dab18d2f8f55004002e17dd3a18529277845/encoding/data.go#L27>

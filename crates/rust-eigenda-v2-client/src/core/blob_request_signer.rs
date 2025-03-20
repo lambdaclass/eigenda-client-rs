@@ -1,3 +1,4 @@
+use ethereum_types::Address;
 use crate::core::BlobHeader;
 
 pub trait BlobRequestSigner {
@@ -5,7 +6,7 @@ pub trait BlobRequestSigner {
 
     fn sign_payment_state_request() -> Result<Vec<u8>, String>;
 
-    fn get_account_id() -> String;
+    fn get_account_id() -> Result<Address, String>;
 }
 
 
@@ -28,7 +29,7 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
         todo!()
     }
 
-    fn get_account_id() -> String {
+    fn get_account_id() -> Result<Address, String> {
         todo!()
     }
 }

@@ -32,7 +32,7 @@ pub struct EncodedPayload {
 
 impl EncodedPayload {
     /// Creates a new `EncodedPayload` from a `Payload`, performing the `PayloadEncodingVersion0` encoding
-    pub fn new(payload: &Payload) -> Result<EncodedPayload, String> {
+    pub fn new(payload: &Payload) -> Result<EncodedPayload, ConversionError> {
         let mut header = [0u8; 32].to_vec();
         header[1] = PayloadEncodingVersion::Zero as u8;
 
@@ -56,7 +56,12 @@ impl EncodedPayload {
     pub fn decode(&self) -> Result<Payload, ConversionError> {
         let expected_data_length = match self.bytes[2..6].try_into() {
             Ok(arr) => u32::from_be_bytes(arr),
-            Err(_) => return Err(ConversionError::Cast("Payload", "Invalid header format: couldn't read data length".to_string())),
+            Err(_) => {
+                return Err(ConversionError::Cast(
+                    "Payload",
+                    "Invalid header format: couldn't read data length".to_string(),
+                ))
+            }
         };
         // decode raw data modulo bn254
         let unpadded_data = remove_internal_padding(&self.bytes[32..])?;
@@ -65,11 +70,17 @@ impl EncodedPayload {
         // data length is checked when constructing an encoded payload. If this error is encountered, that means there
         // must be a flaw in the logic at construction time (or someone was bad and didn't use the proper construction methods)
         if unpadded_data_length < expected_data_length {
-            return Err(ConversionError::Cast("Payload", "Invalid header format: data length is less than expected".to_string()));
+            return Err(ConversionError::Cast(
+                "Payload",
+                "Invalid header format: data length is less than expected".to_string(),
+            ));
         }
 
         if unpadded_data_length > expected_data_length + 31 {
-            return Err(ConversionError::Cast("Payload", "Invalid header format: data length is greater than expected".to_string()));
+            return Err(ConversionError::Cast(
+                "Payload",
+                "Invalid header format: data length is greater than expected".to_string(),
+            ));
         }
 
         Ok(Payload::new(
@@ -161,7 +172,7 @@ fn remove_internal_padding(padded_data: &[u8]) -> Result<Vec<u8>, ConversionErro
                 "padded data (length {}) must be multiple of BYTES_PER_SYMBOL ({})",
                 padded_data.len(),
                 BYTES_PER_SYMBOL
-            )
+            ),
         ));
     }
 

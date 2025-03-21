@@ -1,5 +1,3 @@
-type Reason = String;
-
 /// Errors returned by this crate
 #[derive(Debug, thiserror::Error)]
 pub enum EigenClientError {
@@ -10,6 +8,7 @@ pub enum EigenClientError {
 }
 
 type Type = &'static str;
+type Reason = String; // We cannot use &'static str here because the error message may contain dynamic information.
 
 /// Errors specific to conversion
 #[derive(Debug, thiserror::Error)]

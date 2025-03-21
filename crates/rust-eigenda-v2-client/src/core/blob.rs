@@ -24,10 +24,7 @@ pub struct Blob {
 // todo: use real errors
 impl Blob {
     /// deserialize_blob initializes a Blob from bytes
-    pub fn deserialize_blob(
-        bytes: Vec<u8>,
-        blob_length_symbols: usize,
-    ) -> Result<Blob, BlobError> {
+    pub fn deserialize_blob(bytes: Vec<u8>, blob_length_symbols: usize) -> Result<Blob, BlobError> {
         // we check that length of bytes is <= blob length, rather than checking for equality, because it's possible
         // that the bytes being deserialized have had trailing 0s truncated.
         if bytes.len() > blob_length_symbols * BYTES_PER_SYMBOL {
@@ -56,7 +53,9 @@ impl Blob {
     /// conversion, if any, must be performed when creating a payload from the blob.
     pub fn to_payload(&self, payload_form: PayloadForm) -> Result<Payload, EigenClientError> {
         let encoded_payload = self.to_encoded_payload(payload_form)?;
-        encoded_payload.decode().map_err( EigenClientError::Conversion)
+        encoded_payload
+            .decode()
+            .map_err(EigenClientError::Conversion)
     }
 
     /// get_unpadded_data_length accepts the length of an array that has been padded with pad_payload
@@ -99,17 +98,17 @@ impl Blob {
         let payload_elements = match payload_form {
             PayloadForm::Coeff => self.coeff_polynomial.clone(),
             PayloadForm::Eval => {
-                coeff_to_eval_poly(self.coeff_polynomial.clone(), self.blob_length_symbols).unwrap()
+                coeff_to_eval_poly(self.coeff_polynomial.clone(), self.blob_length_symbols)?
             }
         };
 
         let max_possible_payload_length = self
             .get_max_permissible_payloadlength(self.blob_length_symbols)
             .map_err(EigenClientError::Blob)?;
-        Ok(
-            EncodedPayload::from_field_elements(&payload_elements, max_possible_payload_length)
-                .unwrap(),
-        )
+        Ok(EncodedPayload::from_field_elements(
+            &payload_elements,
+            max_possible_payload_length,
+        )?)
     }
 }
 

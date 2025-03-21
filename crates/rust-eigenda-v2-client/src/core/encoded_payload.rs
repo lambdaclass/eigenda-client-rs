@@ -1,4 +1,7 @@
-use crate::core::{Payload, PayloadEncodingVersion, BYTES_PER_SYMBOL};
+use crate::{
+    core::{Payload, PayloadEncodingVersion, BYTES_PER_SYMBOL},
+    errors::ConversionError,
+};
 use ark_bn254::Fr;
 use rust_kzg_bn254_primitives::helpers::{to_byte_array, to_fr_array};
 
@@ -50,10 +53,10 @@ impl EncodedPayload {
     }
 
     /// Decodes the `EncodedPayload` back into a `Payload`.
-    pub fn decode(&self) -> Result<Payload, String> {
+    pub fn decode(&self) -> Result<Payload, ConversionError> {
         let expected_data_length = match self.bytes[2..6].try_into() {
             Ok(arr) => u32::from_be_bytes(arr),
-            Err(_) => return Err("Invalid header format: couldn't read data length".to_string()),
+            Err(_) => return Err(ConversionError::Cast("Payload", "Invalid header format: couldn't read data length".to_string())),
         };
         // decode raw data modulo bn254
         let unpadded_data = remove_internal_padding(&self.bytes[32..])?;
@@ -62,13 +65,11 @@ impl EncodedPayload {
         // data length is checked when constructing an encoded payload. If this error is encountered, that means there
         // must be a flaw in the logic at construction time (or someone was bad and didn't use the proper construction methods)
         if unpadded_data_length < expected_data_length {
-            // TODO: add error handling
-            return Err("Invalid header format: data length is less than expected".to_string());
+            return Err(ConversionError::Cast("Payload", "Invalid header format: data length is less than expected".to_string()));
         }
 
         if unpadded_data_length > expected_data_length + 31 {
-            // TODO: add error handling
-            return Err("Invalid header format: data length is greater than expected".to_string());
+            return Err(ConversionError::Cast("Payload", "Invalid header format: data length is greater than expected".to_string()));
         }
 
         Ok(Payload::new(
@@ -86,23 +87,25 @@ impl EncodedPayload {
     pub fn from_field_elements(
         field_elements: &[Fr],
         max_payload_length: usize,
-    ) -> Result<EncodedPayload, String> {
+    ) -> Result<EncodedPayload, ConversionError> {
         let serialized_felts = to_byte_array(field_elements, usize::MAX);
         // read payload length from the payload header
         let payload_length = match serialized_felts[2..6].try_into() {
             Ok(arr) => u32::from_be_bytes(arr),
             Err(_) => {
-                return Err(
-                    "Invalid serialized field elements: couldn't read payload length".to_string(),
-                );
+                return Err(ConversionError::Cast(
+                    "EncodedPayload",
+                    "invalid serialized field elements: couldn't read payload length".to_string(),
+                ))
             }
         };
 
         if payload_length > max_payload_length as u32 {
-            return Err(
-                "Invalid serialized field elements: payload length is greater than maximum allowed"
+            return Err(ConversionError::Cast(
+                "EncodedPayload",
+                "invalid serialized field elements: payload length is greater than maximum allowed"
                     .to_string(),
-            );
+            ));
         }
 
         let padded_length = get_padded_data_length(payload_length as usize);
@@ -121,9 +124,12 @@ impl EncodedPayload {
                 .skip(encoded_payload_length);
             for (index, &byte) in remaining_serialized_felts {
                 if byte != 0 {
-                    return Err(format!(
-                        "byte at index {} was expected to be 0x00, but instead was 0x{:02x}",
-                        index, byte
+                    return Err(ConversionError::Cast(
+                        "EncodedPayload",
+                        format!(
+                            "byte at index {} was expected to be 0x00, but instead was 0x{:02x}",
+                            index, byte
+                        ),
                     ));
                 }
             }
@@ -147,12 +153,15 @@ impl EncodedPayload {
 ///
 /// This function assumes that the input aligns to 32 bytes. Since it is removing 1 byte for every 31 bytes kept, the
 /// output from this function is not guaranteed to align to 32 bytes.
-fn remove_internal_padding(padded_data: &[u8]) -> Result<Vec<u8>, String> {
+fn remove_internal_padding(padded_data: &[u8]) -> Result<Vec<u8>, ConversionError> {
     if padded_data.len() % BYTES_PER_SYMBOL != 0 {
-        return Err(format!(
-            "padded data (length {}) must be multiple of BYTES_PER_SYMBOL ({})",
-            padded_data.len(),
-            BYTES_PER_SYMBOL
+        return Err(ConversionError::Cast(
+            "EncodedPayload",
+            format!(
+                "padded data (length {}) must be multiple of BYTES_PER_SYMBOL ({})",
+                padded_data.len(),
+                BYTES_PER_SYMBOL
+            )
         ));
     }
 
@@ -304,7 +313,7 @@ mod tests {
         assert_eq!(encoded_payload, new_encoded_payload);
     }
 
-    /// Checks that an encoded payload with trailing non-zero bytes fails at decode    
+    /// Checks that an encoded payload with trailing non-zero bytes fails at decode
     #[test]
     fn test_trailing_non_zeros() {
         // TODO: add proptest

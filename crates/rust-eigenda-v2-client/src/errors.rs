@@ -16,6 +16,20 @@ pub enum ConversionError {
     EncodedPayload(String),
     #[error("Failed to parse polynomial: {0}")]
     Poly(String),
+    #[error("Failed to parse G1 point: {0}")]
+    G1Point(String),
+    #[error("Failed to parse G2 point: {0}")]
+    G2Point(String),
+    #[error("Failed to parse blob header: {0}")]
+    BlobHeader(String),
+    #[error("Failed to parse blob certificate: {0}")]
+    BlobCertificate(String),
+    #[error("Failed to parse blob inclusion: {0}")]
+    BlobInclusion(String),
+    #[error("Failed to parse batch header: {0}")]
+    BatchHeader(String),
+    #[error("Failed to parse blob key: {0}")]
+    BlobKey(String),
 }
 
 /// Errors specific to the Blob type
@@ -25,4 +39,8 @@ pub enum BlobError {
     InvalidBlobLength(usize),
     #[error("Invalid data length: {0}")]
     InvalidDataLength(usize),
+    #[error("Invalid quorum number: {0}")]
+    InvalidQuorumNumber(u32),
+    #[error("Missing field: {0}")]
+    MissingField(String),
 }

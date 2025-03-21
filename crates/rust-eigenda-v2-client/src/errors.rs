@@ -7,14 +7,15 @@ pub enum EigenClientError {
     Blob(#[from] BlobError),
 }
 
-type Type = &'static str;
-type Reason = String; // We cannot use &'static str here because the error message may contain dynamic information.
-
 /// Errors specific to conversion
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
-    #[error("Failed to cast {0}: {1}")]
-    Cast(Type, Reason),
+    #[error("Failed to parse payload: {0}")]
+    Payload(String),
+    #[error("Failed to parse encoded payload: {0}")]
+    EncodedPayload(String),
+    #[error("Failed to parse polynomial: {0}")]
+    Poly(String),
 }
 
 /// Errors specific to the Blob type

@@ -10,10 +10,7 @@ pub(crate) fn eval_to_coeff_poly(
     blob_length_symbols: usize,
 ) -> Result<Vec<Fr>, ConversionError> {
     Ok(GeneralEvaluationDomain::<Fr>::new(blob_length_symbols)
-        .ok_or(ConversionError::Cast(
-            "Coeff Poly",
-            "Failed to create domain".to_string(),
-        ))?
+        .ok_or(ConversionError::Poly("Failed to create domain".to_string()))?
         .ifft(&eval_poly))
 }
 
@@ -23,8 +20,7 @@ pub(crate) fn coeff_to_eval_poly(
     blob_length_symbols: usize,
 ) -> Result<Vec<Fr>, ConversionError> {
     let evals = GeneralEvaluationDomain::<Fr>::new(blob_length_symbols)
-        .ok_or(ConversionError::Cast(
-            "Eval Poly",
+        .ok_or(ConversionError::Poly(
             "Failed to construct domain for FFT".to_string(),
         ))?
         .fft(&coeff_poly);

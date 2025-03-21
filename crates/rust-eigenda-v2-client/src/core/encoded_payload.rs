@@ -57,8 +57,7 @@ impl EncodedPayload {
         let expected_data_length = match self.bytes[2..6].try_into() {
             Ok(arr) => u32::from_be_bytes(arr),
             Err(_) => {
-                return Err(ConversionError::Cast(
-                    "Payload",
+                return Err(ConversionError::Payload(
                     "Invalid header format: couldn't read data length".to_string(),
                 ))
             }
@@ -70,15 +69,13 @@ impl EncodedPayload {
         // data length is checked when constructing an encoded payload. If this error is encountered, that means there
         // must be a flaw in the logic at construction time (or someone was bad and didn't use the proper construction methods)
         if unpadded_data_length < expected_data_length {
-            return Err(ConversionError::Cast(
-                "Payload",
+            return Err(ConversionError::Payload(
                 "Invalid header format: data length is less than expected".to_string(),
             ));
         }
 
         if unpadded_data_length > expected_data_length + 31 {
-            return Err(ConversionError::Cast(
-                "Payload",
+            return Err(ConversionError::Payload(
                 "Invalid header format: data length is greater than expected".to_string(),
             ));
         }
@@ -104,16 +101,14 @@ impl EncodedPayload {
         let payload_length = match serialized_felts[2..6].try_into() {
             Ok(arr) => u32::from_be_bytes(arr),
             Err(_) => {
-                return Err(ConversionError::Cast(
-                    "EncodedPayload",
+                return Err(ConversionError::EncodedPayload(
                     "invalid serialized field elements: couldn't read payload length".to_string(),
                 ))
             }
         };
 
         if payload_length > max_payload_length as u32 {
-            return Err(ConversionError::Cast(
-                "EncodedPayload",
+            return Err(ConversionError::EncodedPayload(
                 "invalid serialized field elements: payload length is greater than maximum allowed"
                     .to_string(),
             ));
@@ -135,13 +130,10 @@ impl EncodedPayload {
                 .skip(encoded_payload_length);
             for (index, &byte) in remaining_serialized_felts {
                 if byte != 0 {
-                    return Err(ConversionError::Cast(
-                        "EncodedPayload",
-                        format!(
-                            "byte at index {} was expected to be 0x00, but instead was 0x{:02x}",
-                            index, byte
-                        ),
-                    ));
+                    return Err(ConversionError::EncodedPayload(format!(
+                        "byte at index {} was expected to be 0x00, but instead was 0x{:02x}",
+                        index, byte
+                    )));
                 }
             }
         }
@@ -166,14 +158,11 @@ impl EncodedPayload {
 /// output from this function is not guaranteed to align to 32 bytes.
 fn remove_internal_padding(padded_data: &[u8]) -> Result<Vec<u8>, ConversionError> {
     if padded_data.len() % BYTES_PER_SYMBOL != 0 {
-        return Err(ConversionError::Cast(
-            "EncodedPayload",
-            format!(
-                "padded data (length {}) must be multiple of BYTES_PER_SYMBOL ({})",
-                padded_data.len(),
-                BYTES_PER_SYMBOL
-            ),
-        ));
+        return Err(ConversionError::EncodedPayload(format!(
+            "padded data (length {}) must be multiple of BYTES_PER_SYMBOL ({})",
+            padded_data.len(),
+            BYTES_PER_SYMBOL
+        )));
     }
 
     let bytes_per_chunk = BYTES_PER_SYMBOL - 1;

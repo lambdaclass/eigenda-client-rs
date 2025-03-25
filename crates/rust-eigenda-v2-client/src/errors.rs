@@ -14,7 +14,7 @@ pub enum ConversionError {
     Payload(String),
     #[error("Failed to parse encoded payload: {0}")]
     EncodedPayload(String),
-    #[error("Failed to parse polynomial: {0}")]
+    #[error("Failed to convert polynomial: {0}")]
     Poly(String),
     #[error("Failed to parse G1 point: {0}")]
     G1Point(String),
@@ -37,6 +37,12 @@ pub enum ConversionError {
 pub enum BlobError {
     #[error("Invalid blob length: {0}")]
     InvalidBlobLength(usize),
+    #[error("Blob length is zero")]
+    InvalidBlobLengthZero,
+    #[error("Blob length is not a power of two")]
+    InvalidBlobLengthNotPowerOfTwo(usize),
+    #[error("Mismatch between commitment ({0}) and blob ({1})")]
+    CommitmentAndBlobLengthMismatch(usize, usize),
     #[error("Invalid data length: {0}")]
     InvalidDataLength(usize),
     #[error("Invalid quorum number: {0}")]

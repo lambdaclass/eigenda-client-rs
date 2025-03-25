@@ -28,7 +28,10 @@ impl Blob {
         // we check that length of bytes is <= blob length, rather than checking for equality, because it's possible
         // that the bytes being deserialized have had trailing 0s truncated.
         if bytes.len() > blob_length_symbols * BYTES_PER_SYMBOL {
-            return Err(BlobError::InvalidBlobLength(bytes.len()));
+            return Err(BlobError::CommitmentAndBlobLengthMismatch(
+                blob_length_symbols,
+                bytes.len() / BYTES_PER_SYMBOL,
+            ));
         }
 
         let coeff_polynomial = rust_kzg_bn254_primitives::helpers::to_fr_array(&bytes);
@@ -78,10 +81,12 @@ impl Blob {
         blob_length_symbols: usize,
     ) -> Result<usize, BlobError> {
         if blob_length_symbols == 0 {
-            return Err(BlobError::InvalidBlobLength(blob_length_symbols));
+            return Err(BlobError::InvalidBlobLengthZero);
         }
         if !blob_length_symbols.is_power_of_two() {
-            return Err(BlobError::InvalidBlobLength(blob_length_symbols));
+            return Err(BlobError::InvalidBlobLengthNotPowerOfTwo(
+                blob_length_symbols,
+            ));
         }
 
         self.get_unpadded_data_length(blob_length_symbols * BYTES_PER_SYMBOL - 32)
@@ -102,9 +107,8 @@ impl Blob {
             }
         };
 
-        let max_possible_payload_length = self
-            .get_max_permissible_payloadlength(self.blob_length_symbols)
-            .map_err(EigenClientError::Blob)?;
+        let max_possible_payload_length =
+            self.get_max_permissible_payloadlength(self.blob_length_symbols)?;
         Ok(EncodedPayload::from_field_elements(
             &payload_elements,
             max_possible_payload_length,

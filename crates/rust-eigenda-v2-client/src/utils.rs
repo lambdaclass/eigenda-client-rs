@@ -14,7 +14,7 @@ pub(crate) fn eval_to_coeff_poly(
         .ifft(&eval_poly))
 }
 
-/// computeEvalPoly converts a blob's coeff_poly to an eval_poly, using the FFT operation
+/// coeff_to_eval_poly converts a polynomial in coefficient form to one in evaluation form, using the FFT operation.
 pub(crate) fn coeff_to_eval_poly(
     coeff_poly: Vec<Fr>,
     blob_length_symbols: usize,

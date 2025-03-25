@@ -1,12 +1,22 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 use ark_bn254::{Fr, G1Affine};
 use ethereum_types::U256;
+use tonic::transport::{Channel, ClientTlsConfig, Endpoint};
 
-use crate::{core::{
-    eigenda_cert::{BlobCommitment, BlobKey},
-    BYTES_PER_SYMBOL,
-}, generated::validator::GetChunksRequest};
+use crate::{
+    core::{
+        eigenda_cert::{BlobCommitment, BlobKey},
+        BYTES_PER_SYMBOL,
+    },
+    generated::validator::{
+        retrieval_client::RetrievalClient as GrpcRetrievalClient, GetChunksRequest,
+    },
+};
 
 // TODO: Relocate structs?
 
@@ -98,6 +108,7 @@ pub(crate) struct RetrievalClient<
     C: RetrievalChainStateProvider,
     V: RetrievalVerifier,
 > {
+    client: Arc<Mutex<GrpcRetrievalClient<Channel>>>,
     eth_client: E,
     chain_state: C,
     verifier: V,
@@ -107,8 +118,22 @@ pub(crate) struct RetrievalClient<
 impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier>
     RetrievalClient<E, C, V>
 {
-    pub(crate) fn new(eth_client: E, chain_state: C, verifier: V, num_connections: u32) -> Self {
+    pub(crate) async fn new(
+        eth_client: E,
+        chain_state: C,
+        verifier: V,
+        num_connections: u32,
+    ) -> Self {
+        let endpoint = Endpoint::from_str("foo")
+            .unwrap()
+            .tls_config(ClientTlsConfig::new())
+            .unwrap();
+        let client = Arc::new(Mutex::new(
+            GrpcRetrievalClient::connect(endpoint).await.unwrap(),
+        ));
+
         Self {
+            client,
             eth_client,
             chain_state,
             verifier,
@@ -206,7 +231,19 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
             blob_key: blob_key.to_vec(),
             quorum_id: quorum_id as u32,
         };
-        unimplemented!()
+        let reply = self
+            .client
+            .lock()
+            .unwrap()
+            .get_chunks(request)
+            .await
+            .unwrap()
+            .into_inner();
+        let chunks = reply.chunks;
+        Ok(RetrievedChunks {
+            operator_id: op_id,
+            chunks: vec![],
+        })
     }
 }
 

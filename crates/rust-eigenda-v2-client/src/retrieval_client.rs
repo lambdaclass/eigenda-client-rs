@@ -5,7 +5,9 @@ use std::{
 };
 
 use ark_bn254::{Fr, G1Affine};
+use ark_ff::PrimeField;
 use ethereum_types::U256;
+use rust_kzg_bn254_primitives::traits::ReadPointFromBytes;
 use tonic::transport::{Channel, ClientTlsConfig, Endpoint};
 
 use crate::{
@@ -28,9 +30,9 @@ pub(crate) type Symbol = Fr;
 /// Frame is a chunk of data with the associated multi-reveal proof
 pub(crate) struct Frame {
     /// proof is the multireveal proof corresponding to the chunk
-    proof: Proof,
+    pub(crate) proof: Proof,
     // coeffs contains the coefficients of the interpolating polynomial of the chunk
-    coeffs: Vec<Symbol>,
+    pub(crate) coeffs: Vec<Symbol>,
 }
 
 pub(crate) type ChunkNumber = usize;
@@ -169,17 +171,10 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
         // Fetch chunks from all operators
         let mut replies: Vec<RetrievedChunks> = Vec::new(); // TODO: change this
         for op_id in 0..operators.len() {
-            let op_info = operator_state
-                .operators
-                .get(&quorum_id)
-                .unwrap()
-                .get(&op_id)
-                .unwrap()
-                .clone();
             // TODO: this is done with a worker pool in go's client
             // We should work on a more parallelized implementation.
             let retrieved_chunk = self
-                .get_chunks_from_operator(op_id, op_info, blob_key, quorum_id)
+                .get_chunks_from_operator(op_id, blob_key, quorum_id)
                 .await?;
             replies.push(retrieved_chunk);
         }
@@ -223,7 +218,6 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
     pub(crate) async fn get_chunks_from_operator(
         &self,
         op_id: usize,
-        op_info: OperatorInfo,
         blob_key: BlobKey,
         quorum_id: u8,
     ) -> Result<RetrievedChunks, String> {
@@ -239,10 +233,20 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
             .await
             .unwrap()
             .into_inner();
-        let chunks = reply.chunks;
+
+        if reply.chunk_encoding_format == 0 {
+            return Err("unknown encoding format".to_string());
+        }
+
+        let mut chunks = Vec::new();
+        for chunk in reply.chunks {
+            let frame = deserialize_gnark(chunk)?;
+            chunks.push(frame);
+        }
+
         Ok(RetrievedChunks {
             operator_id: op_id,
-            chunks: vec![],
+            chunks,
         })
     }
 }
@@ -300,4 +304,25 @@ fn get_assignments(
 ) -> HashMap<usize, Assignment> {
     // TODO: implement
     HashMap::new()
+}
+
+const SIZE_OF_G1_AFFINE_COMPRESSED: usize = 32;
+
+fn deserialize_gnark(data: Vec<u8>) -> Result<Frame, String> {
+    if data.len() <= SIZE_OF_G1_AFFINE_COMPRESSED {
+        return Err("Invalid data length".to_string());
+    }
+
+    let proof = G1Affine::read_point_from_bytes_be(&data[0..SIZE_OF_G1_AFFINE_COMPRESSED]).unwrap();
+
+    if (data.len() - SIZE_OF_G1_AFFINE_COMPRESSED) % BYTES_PER_SYMBOL != 0 {
+        return Err("Invalid chunk length".to_string());
+    }
+
+    let mut coeffs = Vec::new();
+    for bytes in data[SIZE_OF_G1_AFFINE_COMPRESSED..].chunks(BYTES_PER_SYMBOL) {
+        coeffs.push(Fr::from_be_bytes_mod_order(bytes));
+    }
+
+    Ok(Frame { proof, coeffs })
 }

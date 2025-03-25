@@ -283,8 +283,7 @@ fn get_chunk_length(length: u32, blob_param: &BlobVersionParameters) -> Result<u
         return Err(format!("num_chunks must be greater than 0"));
     }
 
-    // Check that the blob length is a power of 2 using bit manipulation
-    if length & (length - 1) != 0 {
+    if !length.is_power_of_two() {
         return Err(format!("blob length {} is not a power of 2", length));
     }
 

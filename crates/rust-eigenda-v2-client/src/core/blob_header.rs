@@ -43,3 +43,16 @@ pub struct BlobHeader {
     /// Contains the payment information for the blob.
     payment_metadata: PaymentMetadata,
 }
+
+impl BlobHeader {
+    pub fn blob_key(&self) -> Result<BlobKey, String> {
+        self.compute_blob_key()
+    }
+
+    fn compute_blob_key(&self) -> Result<BlobKey, String> {
+        // should reuse compute_key from eigenDA cert PR 
+        todo!()
+    }
+}
+
+pub struct BlobKey;

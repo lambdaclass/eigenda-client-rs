@@ -114,18 +114,12 @@ pub(crate) struct RetrievalClient<
     eth_client: E,
     chain_state: C,
     verifier: V,
-    num_connections: u32, // TODO: needless field?
 }
 
 impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier>
     RetrievalClient<E, C, V>
 {
-    pub(crate) async fn new(
-        eth_client: E,
-        chain_state: C,
-        verifier: V,
-        num_connections: u32,
-    ) -> Self {
+    pub(crate) async fn new(eth_client: E, chain_state: C, verifier: V) -> Self {
         let endpoint = Endpoint::from_str("foo")
             .unwrap()
             .tls_config(ClientTlsConfig::new())
@@ -139,7 +133,6 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
             eth_client,
             chain_state,
             verifier,
-            num_connections,
         }
     }
 
@@ -169,7 +162,7 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
         let assignments = get_assignments(&operator_state, blob_param, quorum_id);
 
         // Fetch chunks from all operators
-        let mut replies: Vec<RetrievedChunks> = Vec::new(); // TODO: change this
+        let mut replies: Vec<RetrievedChunks> = Vec::new();
         for op_id in 0..operators.len() {
             // TODO: this is done with a worker pool in go's client
             // We should work on a more parallelized implementation.
@@ -266,18 +259,41 @@ pub(crate) struct OperatorInfo {
     index: usize,
     // Socket is the socket address of the operator
     // Populated only when using GetOperatorStateWithSocket; otherwise it is an empty string
-    socket: String, // TODO: needless type?
+    socket: String,
 }
 
 fn get_encoding_params(
     length: u32,
     blob_param: &BlobVersionParameters,
 ) -> Result<EncodingParams, String> {
-    // TODO: implement
+    let length = get_chunk_length(length, blob_param)?;
+
     Ok(EncodingParams {
-        num_chunks: 0,
-        chunk_len: 0,
+        num_chunks: blob_param.num_chunks as u64,
+        chunk_len: length as u64,
     })
+}
+
+fn get_chunk_length(length: u32, blob_param: &BlobVersionParameters) -> Result<u32, String> {
+    if length == 0 {
+        return Err(format!("blob length must be greater than 0"));
+    }
+
+    if blob_param.num_chunks == 0 {
+        return Err(format!("num_chunks must be greater than 0"));
+    }
+
+    // Check that the blob length is a power of 2 using bit manipulation
+    if length & (length - 1) != 0 {
+        return Err(format!("blob length {} is not a power of 2", length));
+    }
+
+    let mut chunk_length = length.saturating_mul(blob_param.coding_rate) / blob_param.num_chunks;
+    if chunk_length == 0 {
+        chunk_length = 1;
+    }
+
+    Ok(chunk_length)
 }
 
 // Assignment contains information about the set of chunks that a specific node will receive

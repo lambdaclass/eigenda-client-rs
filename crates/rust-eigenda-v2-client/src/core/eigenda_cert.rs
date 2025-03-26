@@ -101,8 +101,10 @@ impl From<ProtoPaymentHeader> for PaymentHeader {
 
 impl PaymentHeader {
     pub fn hash(&self) -> Result<[u8; 32], ConversionError> {
-        let cumulative_payment = U256::try_from(self.cumulative_payment.as_slice())
-            .map_err(|_| ConversionError::BlobHeader("Invalid cumulative payment".to_string()))?;
+        let cumulative_payment =
+            U256::try_from(self.cumulative_payment.as_slice()).map_err(|_| {
+                ConversionError::PaymentHeader("Invalid cumulative payment".to_string())
+            })?;
         let token = Token::Tuple(vec![
             Token::String(self.account_id.clone()),
             Token::Int(self.timestamp.into()),

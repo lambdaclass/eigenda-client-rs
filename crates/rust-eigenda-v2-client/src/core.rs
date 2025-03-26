@@ -1,4 +1,5 @@
 mod blob;
+pub mod eigenda_cert;
 mod encoded_payload;
 mod payload;
 mod blob_request_signer;
@@ -12,7 +13,7 @@ pub use blob_request_signer::{BlobRequestSigner, LocalBlobRequestSigner};
 pub use blob_header::BlobHeader;
 pub use payment::{PaymentMetadata, ReservedPayment, OnDemandPayment};
 
-pub(crate) const BYTES_PER_SYMBOL: u8 = 32;
+pub(crate) const BYTES_PER_SYMBOL: usize = 32;
 
 /// Payload encoding version
 #[derive(Debug, PartialEq)]
@@ -21,6 +22,7 @@ pub enum PayloadEncodingVersion {
 }
 
 /// The form of a payload dictates what conversion, if any, must be performed when creating a blob from the payload.
+#[derive(Clone, Copy)]
 pub enum PayloadForm {
     /// Evaluation form, where the payload is in evaluation form
     Eval,

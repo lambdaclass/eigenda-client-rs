@@ -33,6 +33,8 @@ impl LocalBlobRequestSigner {
 
 impl BlobRequestSigner for LocalBlobRequestSigner {
     fn sign(&self, blob_header: BlobHeader) -> Result<Vec<u8>, String> {
+        let blob_key = blob_header.blob_key()?;
+
         todo!()
     }
 

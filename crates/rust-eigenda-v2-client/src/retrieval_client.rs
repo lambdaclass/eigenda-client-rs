@@ -396,7 +396,7 @@ fn get_assignments(
             assignment.op_id,
             Assignment {
                 start_index: index,
-                num_chunks: assignment.chunks,
+                num_chunks: assignment.chunks as usize,
             },
         );
         index += assignment.chunks as usize;

@@ -159,7 +159,7 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
 
         let encoding_params = get_encoding_params(blob_commitments.length, blob_param).unwrap();
 
-        let assignments = get_assignments(&operator_state, blob_param, quorum_id);
+        let assignments = get_assignments(&operator_state, blob_param, quorum_id).unwrap();
 
         // Fetch chunks from all operators
         let mut replies: Vec<RetrievedChunks> = Vec::new();
@@ -313,12 +313,96 @@ impl Assignment {
 }
 
 fn get_assignments(
-    operator_state: &OperatorState,
+    state: &OperatorState,
     blob_param: &BlobVersionParameters,
     quorum_id: u8,
-) -> HashMap<usize, Assignment> {
-    // TODO: implement
-    HashMap::new()
+) -> Result<HashMap<usize, Assignment>, String> {
+    let operators = state
+        .operators
+        .get(&quorum_id)
+        .ok_or(format!("No operators found for quorum {}", quorum_id))?;
+
+    let num_operators = operators.len();
+    if num_operators > blob_param.max_num_operators as usize {
+        return Err(format!(
+            "too many operators ({}) to get assignments: max number of operators is {}",
+            num_operators, blob_param.max_num_operators
+        ));
+    }
+
+    // TODO: Maybe not very "rusty" to have a struct defined inside a fn call
+    struct OperatorAssignment {
+        pub op_id: usize,
+        pub index: u32,
+        pub chunks: u32,
+        pub stake: U256,
+    }
+
+    let total_stake = state
+        .totals
+        .get(&quorum_id)
+        .ok_or(format!("No total stake found for quorum {}", quorum_id))?
+        .stake;
+
+    // Calculate number of chunks - num_operators once and reuse
+    let diff_chunks_ops = U256::from(blob_param.num_chunks as usize - num_operators);
+    let mut chunk_assignments: Vec<OperatorAssignment> = Vec::new();
+
+    // Calculate initial chunk assignments based on stake
+    let mut total_calculated_chunks = 0;
+    for (op_id, operator) in operators.iter() {
+        // Calculate chunks for this operator: (stake * (numChunks - numOperators)) / totalStake (rounded up)
+        let num = operator.stake * diff_chunks_ops;
+        // chunks is calculated by rounding up ((a + b - 1) / b)
+        let chunks = ((num + total_stake - U256::one()) / total_stake)
+            .try_into()
+            .map_err(|_| "chunks can't be converted to u64".to_string())?;
+
+        chunk_assignments.push(OperatorAssignment {
+            op_id: *op_id,
+            index: operator.index as u32,
+            chunks,
+            stake: operator.stake,
+        });
+
+        total_calculated_chunks += chunks;
+    }
+
+    // Sort by stake (decreasing) with index as tie-breaker
+    chunk_assignments.sort_by(|a, b| b.stake.cmp(&a.stake).then(b.index.cmp(&a.index)));
+
+    // Distribute any remaining chunks
+    let (delta, underflow) = blob_param
+        .num_chunks
+        .overflowing_sub(total_calculated_chunks);
+    if underflow {
+        return Err(format!(
+            "total chunks {} exceeds maximun {}",
+            total_calculated_chunks, blob_param.num_chunks
+        ));
+    }
+
+    let mut assignments = HashMap::new();
+    let mut index = 0;
+
+    for (i, assignment) in chunk_assignments.iter_mut().enumerate() {
+        // Add remaining chunks to operators with highest stake first
+        if i < delta as usize {
+            assignment.chunks += 1;
+        }
+
+        // Always add operators to the assignments map, even with zero chunks
+        assignments.insert(
+            assignment.op_id,
+            Assignment {
+                start_index: index,
+                num_chunks: assignment.chunks,
+            },
+        );
+        index += assignment.chunks as usize;
+    }
+
+    Ok(assignments)
 }
 
 const SIZE_OF_G1_AFFINE_COMPRESSED: usize = 32;

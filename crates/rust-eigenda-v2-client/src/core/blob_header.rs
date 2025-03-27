@@ -1,5 +1,7 @@
-use crate::core::PaymentMetadata;
+use crate::{core::PaymentMetadata, errors::ConversionError};
 use ark_bn254::{G1Affine, G2Affine};
+
+use super::BlobKey;
 
 #[derive(Debug, PartialEq, )]
 pub struct BlobCommitment {
@@ -37,7 +39,7 @@ pub struct BlobHeader {
     /// Blob version
     blob_version: u16,
     /// Contains the commitments for the blob.
-    blob_commitments: Vec<BlobCommitment>,
+    blob_commitments: BlobCommitment,
     /// Contains the quorums that the blob was dispersed to.
     quorum_numbers: Vec<u8>,
     /// Contains the payment information for the blob.
@@ -45,14 +47,15 @@ pub struct BlobHeader {
 }
 
 impl BlobHeader {
-    pub fn blob_key(&self) -> Result<BlobKey, String> {
-        self.compute_blob_key()
-    }
-
-    fn compute_blob_key(&self) -> Result<BlobKey, String> {
-        // should reuse compute_key from eigenDA cert PR 
-        todo!()
+    pub fn blob_key(&self) -> Result<BlobKey, ConversionError> {
+        let payment_metadata_hash = todo!();
+        let blob_commitments = todo!();
+        
+        BlobKey::compute_blob_key(
+            self.blob_version,
+            blob_commitments,
+            self.quorum_numbers,
+            payment_metadata_hash,
+        )
     }
 }
-
-pub struct BlobKey;

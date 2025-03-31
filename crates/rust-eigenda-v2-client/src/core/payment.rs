@@ -3,20 +3,25 @@ use num_bigint::BigInt;
 
 #[derive(Debug, PartialEq)]
 pub struct PaymentMetadata {
-    account_id: Address,
-    timestamp: i64,
-    cumulative_payment: BigInt,
+    pub account_id: Address,
+    pub timestamp: i64,
+    pub cumulative_payment: BigInt,
 }
 
 /// Contains information about the on-chain state of a reserved payment.
 #[derive(Debug, PartialEq)]
 pub struct ReservedPayment {
     /// Reserved number of symbols per second.
-    symbols_per_second: u64,
+    pub symbols_per_second: u64,
     /// Reservation activation time.
-    start_timestamp: u64,
+    pub start_timestamp: u64,
     /// Reservation expiration time.
-    end_timestamp: u64,
+    pub end_timestamp: u64,
+
+    /// allowed quoroums
+    pub quorum_numbers: Vec<u8>,
+    /// Ordered mapping of quorum number to payment split; on-chain validation should ensure split <= 100
+    pub quorum_splits: Vec<u8>,
 }
 
 impl ReservedPayment {
@@ -30,5 +35,5 @@ impl ReservedPayment {
 #[derive(Debug, PartialEq)]
 pub struct OnDemandPayment {
     /// Total amount deposited by the user.
-    cumulative_payment: BigInt,
+    pub cumulative_payment: BigInt,
 }

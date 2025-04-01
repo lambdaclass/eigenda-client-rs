@@ -57,13 +57,13 @@ pub fn g1_commitment_to_bytes(point: &G1Affine) -> Result<Vec<u8>, ConversionErr
         return Ok(bytes);
     }
 
-    // Get x-coordinate bytes
+    // Get X bytes
     let mut x_bytes = Vec::new();
     point.x.serialize_compressed(&mut x_bytes)?;
     bytes.copy_from_slice(&x_bytes);
     bytes.reverse();
 
-    // Determine msb flag
+    // Determine most significant bits flag
     let mask = match lexicographically_largest(&point.y) {
         true => COMPRESSED_LARGEST,
         false => COMPRESSED_SMALLEST,
@@ -75,14 +75,14 @@ pub fn g1_commitment_to_bytes(point: &G1Affine) -> Result<Vec<u8>, ConversionErr
 
 /// g2_commitment_from_bytes converts a byte slice to a G2Affine point.
 pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionError> {
-    // Get mask from most sifnificant bytes
+    // Get mask from most significant bits
     let msb_mask = bytes[0] & (COMPRESSED_INFINITY | COMPRESSED_SMALLEST | COMPRESSED_LARGEST);
 
     if msb_mask == COMPRESSED_INFINITY {
         return Ok(G2Affine::identity());
     }
 
-    // Remove smallest/largest mask
+    // Remove most significant bits mask
     let mut bytes = bytes.to_vec();
     bytes[0] &= !(COMPRESSED_INFINITY | COMPRESSED_SMALLEST | COMPRESSED_LARGEST);
 
@@ -94,6 +94,7 @@ pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionErro
     let mut point = G2Affine::get_point_from_x_unchecked(x, true).ok_or(
         ConversionError::G2Point("Failed to read G2 Commitment from x bytes".to_string()),
     )?;
+
     // Ensure Y has the correct lexicographic property
     if (msb_mask == COMPRESSED_LARGEST) != lexicographically_largest(&point.y.c0) {
         point.y.neg_in_place();

@@ -37,10 +37,7 @@ impl From<ProtoPaymentHeader> for PaymentHeader {
 
 impl PaymentHeader {
     pub fn hash(&self) -> Result<[u8; 32], ConversionError> {
-        let cumulative_payment =
-            U256::try_from(self.cumulative_payment.as_slice()).map_err(|_| {
-                ConversionError::PaymentHeader("Invalid cumulative payment".to_string())
-            })?;
+        let cumulative_payment = U256::from(self.cumulative_payment.as_slice());
         let token = Token::Tuple(vec![
             Token::String(self.account_id.clone()),
             Token::Int(self.timestamp.into()),
@@ -206,7 +203,7 @@ impl TryFrom<ProtoBatchHeader> for BatchHeaderV2 {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct NonSignerStakesAndSignature {
+pub struct NonSignerStakesAndSignature {
     non_signer_quorum_bitmap_indices: Vec<u32>,
     non_signer_pubkeys: Vec<G1Affine>,
     quorum_apks: Vec<G1Affine>,
@@ -221,7 +218,7 @@ pub(crate) struct NonSignerStakesAndSignature {
 //
 // This struct represents the composition of a eigenDA blob certificate, as it would exist in a rollup inbox.
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct EigenDACert {
+pub struct EigenDACert {
     blob_inclusion_info: BlobInclusionInfo,
     batch_header: BatchHeaderV2,
     non_signer_stakes_and_signature: NonSignerStakesAndSignature,
@@ -230,7 +227,7 @@ pub(crate) struct EigenDACert {
 
 impl EigenDACert {
     /// creates a new EigenDACert from a BlobStatusReply, and NonSignerStakesAndSignature
-    pub(crate) fn new(
+    pub fn new(
         blob_status_reply: BlobStatusReply,
         non_signer_stakes_and_signature: NonSignerStakesAndSignature,
     ) -> Result<Self, EigenClientError> {
@@ -270,7 +267,7 @@ impl EigenDACert {
     }
 
     /// Computes the blob_key of the blob that belongs to the EigenDACert
-    pub(crate) fn compute_blob_key(&self) -> Result<BlobKey, ConversionError> {
+    pub fn compute_blob_key(&self) -> Result<BlobKey, ConversionError> {
         let blob_header = self
             .blob_inclusion_info
             .blob_certificate
@@ -332,10 +329,12 @@ fn compute_blob_key_bytes(
             // Commitment
             Token::Tuple(vec![
                 Token::Uint(
-                    U256::from_dec_str(&blob_commitments.commitment.x.to_string()).unwrap(),
+                    U256::from_dec_str(&blob_commitments.commitment.x.to_string())
+                        .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                 ), // commitment X
                 Token::Uint(
-                    U256::from_dec_str(&blob_commitments.commitment.y.to_string()).unwrap(),
+                    U256::from_dec_str(&blob_commitments.commitment.y.to_string())
+                        .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                 ), // commitment Y
             ]),
             // Most cryptography library serializes a G2 point by having
@@ -350,22 +349,22 @@ fn compute_blob_key_bytes(
                 Token::FixedArray(vec![
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_commitment.x.c1.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_commitment.x.c0.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                 ]),
                 // Y
                 Token::FixedArray(vec![
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_commitment.y.c1.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_commitment.y.c0.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                 ]),
             ]),
@@ -375,21 +374,21 @@ fn compute_blob_key_bytes(
                 Token::FixedArray(vec![
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_proof.x.c1.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_proof.x.c0.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                 ]),
                 Token::FixedArray(vec![
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_proof.y.c1.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                     Token::Uint(
                         U256::from_dec_str(&blob_commitments.length_proof.y.c0.to_string())
-                            .unwrap(),
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
                     ),
                 ]),
             ]),
@@ -413,7 +412,5 @@ fn compute_blob_key_bytes(
     keccak.update(&packed_bytes);
     let mut blob_key = [0u8; 32];
     keccak.finalize(&mut blob_key);
-    blob_key
-        .try_into()
-        .map_err(|_| ConversionError::BlobKey("Failed to parse blob key".to_string()))
+    Ok(blob_key.into())
 }

@@ -1,6 +1,7 @@
 use std::u16;
 
 use ark_bn254::{G1Affine, G2Affine};
+use ark_ff::{BigInteger, PrimeField};
 use ethabi::Token;
 use ethereum_types::U256;
 use tiny_keccak::{Hasher, Keccak};
@@ -367,8 +368,8 @@ impl NonSignerStakesAndSignature {
                     .iter()
                     .map(|k| Token::Tuple(
                         vec![
-                            Token::Uint(U256::from_big_endian(k.x.to_be_bytes())),
-                            Token::Uint(U256::from_big_endian(k.y.to_be_bytes())),
+                            Token::Uint(U256::from_big_endian(&k.x.into_bigint().to_bytes_be())),
+                            Token::Uint(U256::from_big_endian(&k.y.into_bigint().to_bytes_be())),
                         ]
                     ))
                     .collect(),
@@ -377,8 +378,8 @@ impl NonSignerStakesAndSignature {
                 self.quorum_apks
                     .iter()
                     .map(|k| Token::Tuple(vec![
-                        Token::Uint(U256::from_big_endian(k.x.to_be_bytes())),
-                        Token::Uint(U256::from_big_endian(k.y.to_be_bytes())),
+                        Token::Uint(U256::from_big_endian(&k.x.into_bigint().to_bytes_be())),
+                        Token::Uint(U256::from_big_endian(&k.y.into_bigint().to_bytes_be())),
                     ]))
                     .collect(),
             ),
@@ -393,8 +394,8 @@ impl NonSignerStakesAndSignature {
                 ]),
             ]),
             Token::Tuple(vec![
-                Token::Uint(U256::from_big_endian(self.sigma.x.to_be_bytes())),
-                Token::Uint(U256::from_big_endian(self.sigma.y.to_be_bytes())),
+                Token::Uint(U256::from_big_endian(&self.sigma.x.into_bigint().to_bytes_be())),
+                Token::Uint(U256::from_big_endian(&self.sigma.y.into_bigint().to_bytes_be())),
             ]),
             Token::Array(
                 self.quorum_apk_indices

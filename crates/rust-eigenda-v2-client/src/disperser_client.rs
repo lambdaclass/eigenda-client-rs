@@ -3,8 +3,11 @@ use std::time::Duration;
 use ark_ff::Zero;
 
 use crate::accountant::Accountant;
-use crate::core::{BlobKey, LocalBlobRequestSigner};
-use crate::generated::disperser::v2::{disperser_client, BlobCommitmentReply, BlobStatusReply, GetPaymentStateReply};
+use crate::core::{BlobKey, BlobRequestSigner, LocalBlobRequestSigner};
+use crate::generated::disperser::v2::{
+    disperser_client, BlobCommitmentReply, BlobCommitmentRequest, BlobStatusReply,
+    BlobStatusRequest, GetPaymentStateReply, GetPaymentStateRequest,
+};
 use crate::prover::Prover;
 
 #[derive(Debug)]
@@ -60,7 +63,7 @@ impl DisperserClient {
         signer: LocalBlobRequestSigner,
         rpc_client: disperser_client::DisperserClient<tonic::transport::Channel>,
         prover: Prover,
-        accountant: Accountant
+        accountant: Accountant,
     ) -> Self {
         Self {
             config,
@@ -69,23 +72,59 @@ impl DisperserClient {
             prover,
             accountant,
         }
-    } 
+    }
 
     pub fn disperse_blob(data: &[u8], quorums: &[u8]) {
         todo!()
+
     }
 
-    pub fn blob_status(&self, blob_key: BlobKey) -> Result<BlobStatusReply, String> {
+    /// Populates the accountant with the payment state from the disperser.
+    async fn populate_accountant(&mut self) -> Result<(), String> {
+        let payment_state = self.payment_state().await?;
+        self.accountant.pa
         todo!()
     }
 
-    pub fn payment_state(&self) -> Result<GetPaymentStateReply, String> {
-        todo!()
+
+    /// Returns the status of a blob with the given blob key.
+    pub async fn blob_status(&mut self, blob_key: BlobKey) -> Result<BlobStatusReply, String> {
+        let request = BlobStatusRequest {
+            blob_key: blob_key.to_bytes().to_vec(),
+        };
+
+        self.rpc_client
+            .get_blob_status(request)
+            .await
+            .map(|response| response.into_inner())
+            .map_err(|status| format!("Failed RPC call: {}", status))
     }
 
-    pub fn blob_commitment(&self, data: &[u8]) -> Result<BlobCommitmentReply, String> {
-        todo!()
+    /// Returns the payment state of the disperser client
+    pub async fn payment_state(&mut self) -> Result<GetPaymentStateReply, String> {
+        let account_id = self.signer.account_id()?.to_string();
+        let signature = self.signer.sign_payment_state_request()?;
+        let request = GetPaymentStateRequest {
+            account_id,
+            signature,
+        };
+
+        self.rpc_client
+            .get_payment_state(request)
+            .await
+            .map(|response| response.into_inner())
+            .map_err(|status| format!("Failed RPC call: {}", status))
     }
 
-    
+    pub async fn blob_commitment(&mut self, data: &[u8]) -> Result<BlobCommitmentReply, String> {
+        let request = BlobCommitmentRequest {
+            blob: data.to_vec(),
+        };
+
+        self.rpc_client
+            .get_blob_commitment(request)
+            .await
+            .map(|response| response.into_inner())
+            .map_err(|status| format!("Failed RPC call: {}", status))
+    }
 }

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::core::{OnDemandPayment, PaymentMetadata, ReservedPayment};
+use crate::{core::{OnDemandPayment, PaymentMetadata, ReservedPayment}, generated::disperser::v2::GetPaymentStateReply};
 use ark_ff::Zero;
 use ethereum_types::Address;
 use num_bigint::BigInt;
@@ -134,6 +134,23 @@ impl Accountant {
         }
 
         self.period_records[relative_index as usize].clone()
+    }
+
+    /// Sets the accountant's state from the disperser's response
+    /// We require disperser to return a valid set of global parameters, but optional
+    /// account level on/off-chain state.
+    /// 
+    /// If on-chain fields are not present, we use dummy values that disable accountant 
+    /// from using the corresponding payment method.
+    /// If off-chain fields are not present, we assume the account has no payment history
+    /// and set accoutant state to use initial values.
+    pub fn set_payment_state(&mut self, get_payment_state_reply: &GetPaymentStateReply) -> Result<(), String> {
+        let global_params = get_payment_state_reply.payment_global_params.unwrap();
+        self.min_num_symbols = global_params.min_num_symbols.clone();
+        self.price_per_symbol = global_params.price_per_symbol.clone();
+        self.reservation_window  = global_params.reservation_window.clone();
+
+        Ok(())
     }
 }
 

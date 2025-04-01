@@ -140,22 +140,22 @@ impl BlobCommitment {
             ]),
             Token::Tuple(vec![
                 Token::FixedArray(vec![
-                    Token::Uint(U256::from_big_endian(&self.length_commitment.x_a0)),
                     Token::Uint(U256::from_big_endian(&self.length_commitment.x_a1)),
+                    Token::Uint(U256::from_big_endian(&self.length_commitment.x_a0)),
                 ]),
                 Token::FixedArray(vec![
-                    Token::Uint(U256::from_big_endian(&self.length_commitment.y_a0)),
                     Token::Uint(U256::from_big_endian(&self.length_commitment.y_a1)),
+                    Token::Uint(U256::from_big_endian(&self.length_commitment.y_a0)),
                 ]),
             ]),
             Token::Tuple(vec![
                 Token::FixedArray(vec![
-                    Token::Uint(U256::from_big_endian(&self.length_proof.x_a0)),
                     Token::Uint(U256::from_big_endian(&self.length_proof.x_a1)),
+                    Token::Uint(U256::from_big_endian(&self.length_proof.x_a0)),
                 ]),
                 Token::FixedArray(vec![
-                    Token::Uint(U256::from_big_endian(&self.length_proof.y_a0)),
                     Token::Uint(U256::from_big_endian(&self.length_proof.y_a1)),
+                    Token::Uint(U256::from_big_endian(&self.length_proof.y_a0)),
                 ]),
             ]),
             Token::Uint(self.length.into()),
@@ -385,12 +385,12 @@ impl NonSignerStakesAndSignature {
             ),
             Token::Tuple(vec![
                 Token::FixedArray(vec![
-                    Token::Uint(U256::from_big_endian(&self.apk_g2.x_a0)),
-                    Token::Uint(U256::from_big_endian(&self.apk_g2.x_a1)),
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.x.c1.into_bigint().to_bytes_be())),
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.x.c0.into_bigint().to_bytes_be())),
                 ]),
                 Token::FixedArray(vec![
-                    Token::Uint(U256::from_big_endian(&self.apk_g2.y_a0)),
-                    Token::Uint(U256::from_big_endian(&self.apk_g2.y_a1)),
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.y.c1.into_bigint().to_bytes_be())),
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.y.c0.into_bigint().to_bytes_be())),
                 ]),
             ]),
             Token::Tuple(vec![

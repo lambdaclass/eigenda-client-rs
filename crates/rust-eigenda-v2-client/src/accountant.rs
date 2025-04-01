@@ -1,11 +1,11 @@
-use core::num;
+use std::time::Duration;
 
 use crate::core::{OnDemandPayment, PaymentMetadata, ReservedPayment};
 use ark_ff::Zero;
 use ethereum_types::Address;
 use num_bigint::BigInt;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PeriodRecord {
     index: u32,
     usage: u64,
@@ -101,9 +101,9 @@ impl Accountant {
         let required_quorums = vec![0, 1];
         if self.cumulative_payment <= self.on_demand.cumulative_payment {
             if let Err(_) = quorum_check(quorums, &required_quorums) {
-                return Ok(BigInt::zero())
+                return Ok(BigInt::zero());
             }
-            return Ok(self.cumulative_payment.clone())
+            return Ok(self.cumulative_payment.clone());
         }
 
         Err("neither reservation nor on-demand payment is available".to_string())
@@ -124,8 +124,16 @@ impl Accountant {
         return round_up_divide(num_symbols, self.min_num_symbols) * self.min_num_symbols;
     }
 
-    fn relative_period_record(&self, reservation_period: u64) -> PeriodRecord {
-        todo!()
+    fn relative_period_record(&mut self, index: u64) -> PeriodRecord {
+        let relative_index = index % (self.num_bins as u64);
+        if (self.period_records[relative_index as usize].index as u64) != index {
+            self.period_records[relative_index as usize] = PeriodRecord {
+                index: index as u32,
+                usage: 0,
+            };
+        }
+
+        self.period_records[relative_index as usize].clone()
     }
 }
 
@@ -133,10 +141,34 @@ fn round_up_divide(num: u64, divisor: u64) -> u64 {
     (num + divisor - 1) / divisor
 }
 
-fn get_reservation_info_by_nanosecond(timestamp: i64, reservation_window: u64) -> u64 {
-    todo!()
+fn get_reservation_info_by_nanosecond(timestamp: i64, bin_interval: u64) -> u64 {
+    if timestamp < 0 {
+        return 0;
+    }
+    let duration_secs = Duration::from_nanos(timestamp as u64).as_secs();
+    reservation_period(duration_secs, bin_interval)
 }
 
+// Returns the current reservation period by finding the nearest lower multiple of the bin interval;
+// bin interval used by the disperser is publicly recorded on-chain at the payment vault contract
+fn reservation_period(timestamp: u64, bin_interval: u64) -> u64 {
+    if bin_interval.is_zero() {
+        return 0;
+    }
+    timestamp / bin_interval * bin_interval
+}
+
+/// Checks if there are quorum numbers not allowed in the reservation
 fn quorum_check(quorum_numbers: &[u8], reservation_quorum_numbers: &[u8]) -> Result<(), String> {
-    todo!()
+    if quorum_numbers.is_empty() {
+        return Err("No quorum numbers provided".to_string())
+    }
+
+    for quorum in quorum_numbers {
+        if !reservation_quorum_numbers.contains(quorum) {
+            return Err("quorum number {quorum} not allowed".to_string())
+        }
+    }
+
+    Ok(())
 }

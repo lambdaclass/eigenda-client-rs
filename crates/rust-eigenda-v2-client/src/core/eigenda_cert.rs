@@ -130,6 +130,38 @@ pub(crate) struct BlobCommitment {
     length: u32,
 }
 
+impl BlobCommitment {
+    pub(crate) fn to_tokens(&self) -> Vec<Token> {
+        vec![
+            Token::Tuple(vec![
+                Token::Uint(U256::from_big_endian(&self.commitment.x)),
+                Token::Uint(U256::from_big_endian(&self.commitment.y)),
+            ]),
+            Token::Tuple(vec![
+                Token::FixedArray(vec![
+                    Token::Uint(U256::from_big_endian(&self.length_commitment.x_a0)),
+                    Token::Uint(U256::from_big_endian(&self.length_commitment.x_a1)),
+                ]),
+                Token::FixedArray(vec![
+                    Token::Uint(U256::from_big_endian(&self.length_commitment.y_a0)),
+                    Token::Uint(U256::from_big_endian(&self.length_commitment.y_a1)),
+                ]),
+            ]),
+            Token::Tuple(vec![
+                Token::FixedArray(vec![
+                    Token::Uint(U256::from_big_endian(&self.length_proof.x_a0)),
+                    Token::Uint(U256::from_big_endian(&self.length_proof.x_a1)),
+                ]),
+                Token::FixedArray(vec![
+                    Token::Uint(U256::from_big_endian(&self.length_proof.y_a0)),
+                    Token::Uint(U256::from_big_endian(&self.length_proof.y_a1)),
+                ]),
+            ]),
+            Token::Uint(self.length.into()),
+        ]
+    }
+}
+
 impl TryFrom<ProtoBlobCommitment> for BlobCommitment {
     type Error = ConversionError;
 
@@ -154,6 +186,17 @@ pub(crate) struct BlobHeader {
     quorum_numbers: Vec<u8>,
     commitment: BlobCommitment,
     payment_header_hash: [u8; 32],
+}
+
+impl BlobHeader {
+    pub(crate) fn to_tokens(&self) -> Vec<Token> {
+        vec![
+            Token::Uint(self.version.into()),
+            Token::Bytes(self.quorum_numbers.clone()),
+            Token::Tuple(self.commitment.to_tokens()),
+            Token::FixedBytes(self.payment_header_hash.to_vec()),
+        ]
+    }
 }
 
 impl TryFrom<ProtoBlobHeader> for BlobHeader {
@@ -202,6 +245,16 @@ pub(crate) struct BlobCertificate {
     relay_keys: Vec<u32>,
 }
 
+impl BlobCertificate {
+    pub(crate) fn to_tokens(&self) -> Vec<Token> {
+        vec![
+            Token::Tuple(self.blob_header.to_tokens()),
+            Token::Bytes(self.signature.clone()),
+            Token::Array(self.relay_keys.iter().map(|k| Token::Uint((*k).into())).collect()),
+        ]
+    }
+}
+
 impl TryFrom<ProtoBlobCertificate> for BlobCertificate {
     type Error = ConversionError;
 
@@ -223,6 +276,16 @@ pub(crate) struct BlobInclusionInfo {
     inclusion_proof: Vec<u8>,
 }
 
+impl BlobInclusionInfo {
+    pub(crate) fn to_tokens(&self) -> Vec<Token> {
+        vec![
+            Token::Tuple(self.blob_certificate.to_tokens()),
+            Token::Uint(self.blob_index.into()),
+            Token::Bytes(self.inclusion_proof.clone()),
+        ]
+    }
+}
+
 impl TryFrom<ProtoBlobInclusionInfo> for BlobInclusionInfo {
     type Error = ConversionError;
 
@@ -240,7 +303,16 @@ impl TryFrom<ProtoBlobInclusionInfo> for BlobInclusionInfo {
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BatchHeaderV2 {
     batch_root: [u8; 32],
-    reference_block_number: u32,
+    pub(crate) reference_block_number: u32,
+}
+
+impl BatchHeaderV2 {
+    pub(crate) fn to_tokens(&self) -> Vec<Token> {
+        vec![
+            Token::FixedBytes(self.batch_root.to_vec()),
+            Token::Uint(self.reference_block_number.into()),
+        ]
+    }
 }
 
 impl TryFrom<ProtoBatchHeader> for BatchHeaderV2 {
@@ -281,15 +353,80 @@ pub(crate) struct NonSignerStakesAndSignature {
     non_signer_stake_indices: Vec<Vec<u32>>,
 }
 
+impl NonSignerStakesAndSignature {
+    pub(crate) fn to_tokens(&self) -> Vec<Token> {
+        vec![
+            Token::Array(
+                self.non_signer_quorum_bitmap_indices
+                    .iter()
+                    .map(|k| Token::Uint((*k).into()))
+                    .collect(),
+            ),
+            Token::Array(
+                self.non_signer_pubkeys
+                    .iter()
+                    .map(|k| Token::Tuple(
+                        vec![
+                            Token::Uint(U256::from_big_endian(k.x.to_be_bytes())),
+                            Token::Uint(U256::from_big_endian(k.y.to_be_bytes())),
+                        ]
+                    ))
+                    .collect(),
+            ),
+            Token::Array(
+                self.quorum_apks
+                    .iter()
+                    .map(|k| Token::Tuple(vec![
+                        Token::Uint(U256::from_big_endian(k.x.to_be_bytes())),
+                        Token::Uint(U256::from_big_endian(k.y.to_be_bytes())),
+                    ]))
+                    .collect(),
+            ),
+            Token::Tuple(vec![
+                Token::FixedArray(vec![
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.x_a0)),
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.x_a1)),
+                ]),
+                Token::FixedArray(vec![
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.y_a0)),
+                    Token::Uint(U256::from_big_endian(&self.apk_g2.y_a1)),
+                ]),
+            ]),
+            Token::Tuple(vec![
+                Token::Uint(U256::from_big_endian(self.sigma.x.to_be_bytes())),
+                Token::Uint(U256::from_big_endian(self.sigma.y.to_be_bytes())),
+            ]),
+            Token::Array(
+                self.quorum_apk_indices
+                    .iter()
+                    .map(|k| Token::Uint((*k).into()))
+                    .collect(),
+            ),
+            Token::Array(
+                self.total_stake_indices
+                    .iter()
+                    .map(|k| Token::Uint((*k).into()))
+                    .collect(),
+            ),
+            Token::Array(
+                self.non_signer_stake_indices
+                    .iter()
+                    .map(|k| Token::Array(k.iter().map(|i| Token::Uint((*i).into())).collect()))
+                    .collect(),
+            ),
+        ]
+    }
+}
+
 // EigenDACert contains all data necessary to retrieve and validate a blob
 //
 // This struct represents the composition of a eigenDA blob certificate, as it would exist in a rollup inbox.
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct EigenDACert {
-    blob_inclusion_info: BlobInclusionInfo,
-    batch_header: BatchHeaderV2,
-    non_signer_stakes_and_signature: NonSignerStakesAndSignature,
-    signed_quorum_numbers: Vec<u8>,
+    pub(crate) blob_inclusion_info: BlobInclusionInfo,
+    pub(crate) batch_header: BatchHeaderV2,
+    pub(crate) non_signer_stakes_and_signature: NonSignerStakesAndSignature,
+    pub(crate) signed_quorum_numbers: Vec<u8>,
 }
 
 impl EigenDACert {

@@ -8,6 +8,7 @@ use rust_kzg_bn254_primitives::helpers::{lexicographically_largest, read_g1_poin
 const COMPRESSED_SMALLEST: u8 = 0b10 << 6;
 const COMPRESSED_LARGEST: u8 = 0b11 << 6;
 const COMPRESSED_INFINITY: u8 = 0b01 << 6;
+const G2_COMPRESSED_SIZE: usize = 64;
 
 /// Converts an eval_poly to a coeff_poly, using the IFFT operation
 ///
@@ -75,6 +76,12 @@ pub fn g1_commitment_to_bytes(point: &G1Affine) -> Result<Vec<u8>, ConversionErr
 
 /// g2_commitment_from_bytes converts a byte slice to a G2Affine point.
 pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionError> {
+    if bytes.len() != 64 {
+        return Err(ConversionError::G2Point(
+            "Invalid length for G2 Commitment".to_string(),
+        ));
+    }
+
     // Get mask from most significant bits
     let msb_mask = bytes[0] & (COMPRESSED_INFINITY | COMPRESSED_SMALLEST | COMPRESSED_LARGEST);
 
@@ -103,6 +110,20 @@ pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionErro
     Ok(point)
 }
 
+/// Convert bytes from little-endian to big-endian and vice versa.
+fn switch_endianess(bytes: &mut Vec<u8>) {
+    // Remove leading zeroes
+    let mut filtered_bytes: Vec<u8> = bytes.iter().copied().skip_while(|&x| x == 0).collect();
+
+    filtered_bytes.reverse();
+
+    while filtered_bytes.len() != G2_COMPRESSED_SIZE {
+        filtered_bytes.push(0);
+    }
+
+    *bytes = filtered_bytes;
+}
+
 pub fn g2_commitment_to_bytes(point: &G2Affine) -> Result<Vec<u8>, ConversionError> {
     let mut bytes = vec![0u8; 64];
 
@@ -112,10 +133,7 @@ pub fn g2_commitment_to_bytes(point: &G2Affine) -> Result<Vec<u8>, ConversionErr
     }
 
     point.serialize_compressed(&mut bytes)?;
-
-    // Remove leading zeroes
-    let mut bytes: Vec<u8> = bytes.into_iter().skip_while(|&x| x == 0).collect();
-    bytes.reverse();
+    switch_endianess(&mut bytes);
 
     let mask = match lexicographically_largest(&point.y.c0) {
         true => COMPRESSED_LARGEST,
@@ -129,6 +147,10 @@ pub fn g2_commitment_to_bytes(point: &G2Affine) -> Result<Vec<u8>, ConversionErr
 #[cfg(test)]
 mod tests {
     use ark_bn254::Fq;
+    use ark_ff::UniformRand;
+
+    use proptest::prelude::*;
+    use rand::{rngs::StdRng, SeedableRng};
 
     use super::*;
 
@@ -247,5 +269,43 @@ mod tests {
         // If we serialize the point to bytes it should be equal to the original hex string
         let g2_commitment_bytes = g2_commitment_to_bytes(&g2_commitment).unwrap();
         assert_eq!(g2_commitment_bytes, proto_g2_commitment_bytes);
+    }
+
+    fn test_g1_point_conversion(point: G1Affine) {
+        let bytes = g1_commitment_to_bytes(&point).unwrap();
+        let reconstructed_point = g1_commitment_from_bytes(&bytes).unwrap();
+        assert_eq!(reconstructed_point, point);
+    }
+
+    fn g1_affine_strategy() -> impl Strategy<Value = G1Affine> {
+        any::<[u8; 32]>().prop_map(|seed| {
+            let mut rng = StdRng::from_seed(seed);
+            G1Affine::rand(&mut rng)
+        })
+    }
+
+    fn test_g2_point_conversion(point: G2Affine) {
+        let bytes = g2_commitment_to_bytes(&point).unwrap();
+        let reconstructed_point = g2_commitment_from_bytes(&bytes).unwrap();
+        assert_eq!(reconstructed_point, point);
+    }
+
+    fn g2_affine_strategy() -> impl Strategy<Value = G2Affine> {
+        any::<[u8; 32]>().prop_map(|seed| {
+            let mut rng = StdRng::from_seed(seed);
+            G2Affine::rand(&mut rng)
+        })
+    }
+
+    proptest! {
+        #[test]
+        fn fuzz_g1_point_conversion(g1_point in g1_affine_strategy()) {
+            test_g1_point_conversion(g1_point);
+        }
+
+        #[test]
+        fn fuzz_g2_point_conversion(g2_point in g2_affine_strategy()) {
+            test_g2_point_conversion(g2_point);
+        }
     }
 }

@@ -5,6 +5,10 @@ use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use rust_kzg_bn254_primitives::helpers::{lexicographically_largest, read_g1_point_from_bytes_be};
 
+const COMPRESSED_SMALLEST: u8 = 0b10 << 6;
+const COMPRESSED_LARGEST: u8 = 0b11 << 6;
+const COMPRESSED_INFINITY: u8 = 0b01 << 6;
+
 /// Converts an eval_poly to a coeff_poly, using the IFFT operation
 ///
 /// blob_length_symbols is required, to be able to choose the correct parameters when performing FFT
@@ -32,13 +36,11 @@ pub(crate) fn coeff_to_eval_poly(
 
 /// g1_commitment_from_bytes converts a byte slice to a G1Affine point.
 /// The points received are in compressed form.
-pub(crate) fn g1_commitment_from_bytes(bytes: &[u8]) -> Result<G1Affine, ConversionError> {
-    // See implementation of `read_g1_point_from_bytes_be`
-    // to check how flags work (compressed/uncompressed/infinity)
+pub fn g1_commitment_from_bytes(bytes: &[u8]) -> Result<G1Affine, ConversionError> {
     Ok(read_g1_point_from_bytes_be(bytes).unwrap())
 }
 
-pub(crate) fn g1_commitment_to_proto(point: &G1Affine) -> G1Commitment {
+pub fn g1_commitment_to_proto(point: &G1Affine) -> G1Commitment {
     let x = point.x.into_bigint().to_bytes_be();
     let y = point.y.into_bigint().to_bytes_be();
     G1Commitment { x, y }
@@ -46,12 +48,12 @@ pub(crate) fn g1_commitment_to_proto(point: &G1Affine) -> G1Commitment {
 
 /// Serialize a G1Affine point following applying necessary flags.
 /// https://github.com/Consensys/gnark-crypto/blob/5fd6610ac2a1d1b10fae06c5e552550bf43f4d44/ecc/bn254/marshal.go#L790-L801
-pub(crate) fn g1_commitment_to_bytes(point: &G1Affine) -> Vec<u8> {
+pub fn g1_commitment_to_bytes(point: &G1Affine) -> Vec<u8> {
     let mut bytes = vec![0u8; 32];
 
     // Infinity case
     if point.to_flags().is_infinity() {
-        bytes[0] = 0b01 << 6;
+        bytes[0] = COMPRESSED_INFINITY;
         return bytes;
     }
 
@@ -61,62 +63,61 @@ pub(crate) fn g1_commitment_to_bytes(point: &G1Affine) -> Vec<u8> {
     bytes.copy_from_slice(&x_bytes);
     bytes.reverse();
 
-    // Determine y flag
-    let y_is_largest = lexicographically_largest(&point.y);
-    let m_data = if y_is_largest { 0b11 << 6 } else { 0b10 << 6 };
-    bytes[0] |= m_data;
-
-    // As we are returning a compressed point, we need to set the 'compressed' flag
-    bytes[0] |= 0b1 << 7;
-
-    // If the point is negative, set the 'negative' flag
-    if !point.to_flags().is_positive().unwrap_or(true) {
-        bytes[0] |= 0b1 << 6;
-    }
+    // Determine msb flag
+    let mask = match lexicographically_largest(&point.y) {
+        true => COMPRESSED_LARGEST,
+        false => COMPRESSED_SMALLEST,
+    };
+    bytes[0] |= mask;
 
     bytes
 }
 
 /// g2_commitment_from_bytes converts a byte slice to a G2Affine point.
-pub(crate) fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionError> {
-    if bytes[0] == 0b01 << 6 {
+pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionError> {
+    // Get mask from most sifnificant bytes
+    let msb_mask = bytes[0] & (COMPRESSED_INFINITY | COMPRESSED_SMALLEST | COMPRESSED_LARGEST);
+
+    if msb_mask == COMPRESSED_INFINITY {
         return Ok(G2Affine::identity());
     }
 
     // Remove smallest/largest mask
     let mut bytes = bytes.to_vec();
-    bytes[0] &= 0b0011_1111;
-
-    // smallest (left) and largest (right)
-    // let msb_mask = bytes[0] & (0b01 << 6 | 0b11 << 6);
+    bytes[0] &= !(COMPRESSED_INFINITY | COMPRESSED_SMALLEST | COMPRESSED_LARGEST);
 
     // Extract X from the compressed representation
     let x1 = Fp::from_be_bytes_mod_order(&bytes[0..32]);
     let x0 = Fp::from_be_bytes_mod_order(&bytes[32..64]);
     let x = Fp2::new(x0, x1);
 
-    let point = G2Affine::get_point_from_x_unchecked(x, true).unwrap();
+    let mut point = G2Affine::get_point_from_x_unchecked(x, true).unwrap();
     // Ensure Y has the correct lexicographic property
-    // if (msb_mask == COMPRESSED_LARGEST) != y.is_lexicographically_largest() {
-    //     y = -y;
-    // }
+    if (msb_mask == COMPRESSED_LARGEST) != lexicographically_largest(&point.y.c0) {
+        point.y.neg_in_place();
+    }
 
     Ok(point)
 }
 
-pub(crate) fn g2_commitment_to_bytes(point: &G2Affine) -> Vec<u8> {
+pub fn g2_commitment_to_bytes(point: &G2Affine) -> Vec<u8> {
     let mut bytes = vec![0u8; 64];
+
+    if point.to_flags().is_infinity() {
+        bytes[0] |= COMPRESSED_INFINITY;
+        return bytes;
+    }
+
     point.serialize_compressed(&mut bytes).unwrap();
 
     // Remove leading zeroes
     let mut bytes: Vec<u8> = bytes.into_iter().skip_while(|&x| x == 0).collect();
     bytes.reverse();
 
-    let mut mask = 0b10 << 6; // mCompressedSmallest
-                              // if p.Y ">" -p.Y
-    if point.y > *point.clone().y.neg_in_place() {
-        mask = 0b11 << 6; // mCompressedLargest
-    }
+    let mask = match lexicographically_largest(&point.y.c0) {
+        true => COMPRESSED_LARGEST,
+        false => COMPRESSED_SMALLEST,
+    };
 
     bytes[0] |= mask;
     bytes
@@ -177,10 +178,62 @@ mod tests {
     }
 
     #[test]
-    fn test_g2_commitment_utils() {
-        let proto_g2_commitment_bytes = hex::decode("988473451189058256e788f4e93cb40fc38a9db4549e7b73078a1cc7992d735f2d447efe3e658d556c051fbf3c606f4de0c5d9d609e0170d098337949c2b97e6").unwrap();
-        // let proto_g2_commitment_bytes = hex::decode("a6b7905ed5977e1882e0c33319402621ebc2d90fea4f162f926cb6f95180bdde2db3dddcb27fb709924ce96c60b51345ce0760f502d15f3940b7e5f2c95f4c66").unwrap();
-        // let proto_g2_commitment_bytes = hex::decode("ea27d2ebb013ec41958e6ea9561dd584807020246b0a16a9a0f5c9ebf32266e72c62b908fbb84107c92ccc04a8120d48715a1e63367534af97f1486ed60ccb5b").unwrap();
+    fn test_g1_commitment_utils_infinity_point() {
+        let proto_g1_commitment_bytes =
+            hex::decode("4000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
+
+        // Proto returns a byte array from which we deserialize the point
+        let g1_commitment = g1_commitment_from_bytes(&proto_g1_commitment_bytes).unwrap();
+
+        // We parse the point into its protobuf counterpart
+        let reconstructed_proto_g1_commitment = g1_commitment_to_proto(&g1_commitment);
+
+        let x_from_proto = Fq::from_be_bytes_mod_order(&reconstructed_proto_g1_commitment.x);
+        let y_from_proto = Fq::from_be_bytes_mod_order(&reconstructed_proto_g1_commitment.y);
+
+        // g1_commitment and proto x/y should be equal
+        assert_eq!(x_from_proto, g1_commitment.x);
+        assert_eq!(y_from_proto, g1_commitment.y);
+
+        // If we serialize the point to bytes it should be equal to the original hex string
+        let g1_commitment_bytes = g1_commitment_to_bytes(&g1_commitment);
+        assert_eq!(g1_commitment_bytes, proto_g1_commitment_bytes);
+    }
+
+    #[test]
+    fn test_g2_commitment_utils_lexicographically_smallest() {
+        let proto_g2_commitment_bytes = hex::decode("a8ebbcc06346864939a08f3a1a87f82b0d8511c406383af82cd0381470bc38eb21481f91983ca56afcd8386b4a835c5bd5629bec45c555dab4c18c9072bc2b61").unwrap();
+
+        // Proto returns a byte array from which we deserialize the point
+        let g2_commitment = g2_commitment_from_bytes(&proto_g2_commitment_bytes).unwrap();
+
+        // There's no proto struct for the G2Commitment, so we don't convert it
+        // let reconstructed_proto_g2_commitment = g2_commitment_to_proto(&g2_commitment);
+
+        // If we serialize the point to bytes it should be equal to the original hex string
+        let g2_commitment_bytes = g2_commitment_to_bytes(&g2_commitment);
+        assert_eq!(g2_commitment_bytes, proto_g2_commitment_bytes);
+    }
+
+    #[test]
+    fn test_g2_commitment_utils_lexicographically_largest() {
+        let proto_g2_commitment_bytes = hex::decode("d6c493f305050465bbb90a1fccb62f0b6e669c1e83041621b1b1df0ea4f60aab15762d4d538d39357c114426c917d1221de5fe5b276f648e9c650611e09562c0").unwrap();
+
+        // Proto returns a byte array from which we deserialize the point
+        let g2_commitment = g2_commitment_from_bytes(&proto_g2_commitment_bytes).unwrap();
+
+        // There's no proto struct for the G2Commitment, so we don't convert it
+        // let reconstructed_proto_g2_commitment = g2_commitment_to_proto(&g2_commitment);
+
+        // If we serialize the point to bytes it should be equal to the original hex string
+        let g2_commitment_bytes = g2_commitment_to_bytes(&g2_commitment);
+        assert_eq!(g2_commitment_bytes, proto_g2_commitment_bytes);
+    }
+
+    #[test]
+    fn test_g2_commitment_utils_infinity_point() {
+        let proto_g2_commitment_bytes = hex::decode("40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap();
 
         // Proto returns a byte array from which we deserialize the point
         let g2_commitment = g2_commitment_from_bytes(&proto_g2_commitment_bytes).unwrap();

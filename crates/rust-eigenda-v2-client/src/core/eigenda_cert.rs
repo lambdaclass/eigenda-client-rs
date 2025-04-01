@@ -1,5 +1,3 @@
-use std::u16;
-
 use ark_bn254::{G1Affine, G2Affine};
 use ethabi::Token;
 use ethereum_types::U256;

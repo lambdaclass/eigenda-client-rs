@@ -91,8 +91,7 @@ pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionErro
     let x0 = Fp::from_be_bytes_mod_order(&bytes[32..64]);
     let x = Fp2::new(x0, x1);
 
-    let greatest = msb_mask == COMPRESSED_LARGEST;
-    let mut point = G2Affine::get_point_from_x_unchecked(x, greatest).ok_or(
+    let mut point = G2Affine::get_point_from_x_unchecked(x, true).ok_or(
         ConversionError::G2Point("Failed to read G2 Commitment from x bytes".to_string()),
     )?;
 

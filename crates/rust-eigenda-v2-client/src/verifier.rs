@@ -81,7 +81,7 @@ impl CertVerifierClient for EthClient {
         data.append(&mut ethabi::encode(&eigenda_cert.non_signer_stakes_and_signature.to_tokens()));
         data.append(&mut ethabi::encode(&[Token::Bytes(eigenda_cert.signed_quorum_numbers.clone())]));
 
-        self
+        let res = self
             .call(
                 self.cert_verifier_addr,
                 bytes::Bytes::copy_from_slice(&data),
@@ -89,6 +89,7 @@ impl CertVerifierClient for EthClient {
             )
             .await
             .map_err(EigenClientError::EthClient)?;
+        println!("Response: {:?}", res);
 
         Ok(())
     }
@@ -101,5 +102,68 @@ struct Verifier<T: CertVerifierClient> {
 impl<T: CertVerifierClient> Verifier<T> {
     pub async fn verify_cert_v2(&self, eigenda_cert: &EigenDACert) -> Result<(), EigenClientError> {
         self.eth_client.verify_cert_v2(eigenda_cert).await
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use crate::utils::SecretUrl;
+
+    use super::*;
+    use ark_bn254::{G1Affine, G2Affine};
+    use url::Url;
+
+    fn get_test_eigenda_cert() -> EigenDACert {
+        // Create a test EigenDACert object with dummy data
+        EigenDACert {
+            batch_header: eigenda_cert::BatchHeaderV2 {
+                batch_root: [0; 32],
+                reference_block_number: 0,
+            },
+            blob_inclusion_info: eigenda_cert::BlobInclusionInfo {
+                blob_certificate : eigenda_cert::BlobCertificate {
+                    blob_header: eigenda_cert::BlobHeader {
+                        version: 0,
+                        quorum_numbers: vec![0; 32],
+                        commitment : eigenda_cert::BlobCommitment {
+                            commitment: eigenda_cert::G1Commitment { x: vec![0;32], y: vec![0;32] },
+                            length_commitment: eigenda_cert::G2Commitment { x_a0: vec![0;32], x_a1: vec![0;32], y_a0: vec![0;32], y_a1: vec![0;32] },
+                            length_proof: eigenda_cert::G2Commitment { x_a0: vec![0;32], x_a1: vec![0;32], y_a0: vec![0;32], y_a1: vec![0;32] },
+                            length : 0,
+                        },
+                        payment_header_hash : [0; 32],
+                    },
+                    signature: vec![0; 32],
+                    relay_keys: vec![0; 32],
+                },
+                blob_index: 0,
+                inclusion_proof: vec![0; 32],
+            },
+            non_signer_stakes_and_signature: eigenda_cert::NonSignerStakesAndSignature {
+                non_signer_quorum_bitmap_indices: vec![0; 32],
+                non_signer_pubkeys: vec![G1Affine::identity(); 32],
+                quorum_apks: vec![G1Affine::identity(); 32],
+                apk_g2: G2Affine::identity(),
+                sigma: G1Affine::identity(),
+                quorum_apk_indices: vec![0; 32],
+                total_stake_indices: vec![0; 32],
+                non_signer_stake_indices: vec![vec![0; 32]; 32],
+            },
+            signed_quorum_numbers: vec![0; 32],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_verify_cert_v2_fails() {
+        let eth_client = EthClient::new(SecretUrl::new(Url::from_str("http://localhost:8545").unwrap()), Address::from_str("0x0000000000000000000000000000000000000000").unwrap());
+        let eigenda_cert = get_test_eigenda_cert();
+
+        let verifier = Verifier { eth_client };
+
+        let result = verifier.verify_cert_v2(&eigenda_cert).await;
+
+        assert!(result.is_err());
     }
 }

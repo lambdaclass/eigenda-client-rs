@@ -125,10 +125,10 @@ impl PaymentHeader {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobCommitment {
-    commitment: G1Commitment,
-    length_commitment: G2Commitment,
-    length_proof: G2Commitment,
-    length: u32,
+    pub(crate) commitment: G1Commitment,
+    pub(crate) length_commitment: G2Commitment,
+    pub(crate) length_proof: G2Commitment,
+    pub(crate) length: u32,
 }
 
 impl BlobCommitment {
@@ -183,10 +183,10 @@ impl TryFrom<ProtoBlobCommitment> for BlobCommitment {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobHeader {
-    version: u16,
-    quorum_numbers: Vec<u8>,
-    commitment: BlobCommitment,
-    payment_header_hash: [u8; 32],
+    pub(crate) version: u16,
+    pub(crate) quorum_numbers: Vec<u8>,
+    pub(crate) commitment: BlobCommitment,
+    pub(crate) payment_header_hash: [u8; 32],
 }
 
 impl BlobHeader {
@@ -241,9 +241,9 @@ impl TryFrom<ProtoBlobHeader> for BlobHeader {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobCertificate {
-    blob_header: BlobHeader,
-    signature: Vec<u8>,
-    relay_keys: Vec<u32>,
+    pub(crate) blob_header: BlobHeader,
+    pub(crate) signature: Vec<u8>,
+    pub(crate) relay_keys: Vec<u32>,
 }
 
 impl BlobCertificate {
@@ -272,9 +272,9 @@ impl TryFrom<ProtoBlobCertificate> for BlobCertificate {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobInclusionInfo {
-    blob_certificate: BlobCertificate,
-    blob_index: u32,
-    inclusion_proof: Vec<u8>,
+    pub(crate) blob_certificate: BlobCertificate,
+    pub(crate) blob_index: u32,
+    pub(crate) inclusion_proof: Vec<u8>,
 }
 
 impl BlobInclusionInfo {
@@ -303,7 +303,7 @@ impl TryFrom<ProtoBlobInclusionInfo> for BlobInclusionInfo {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BatchHeaderV2 {
-    batch_root: [u8; 32],
+    pub(crate) batch_root: [u8; 32],
     pub(crate) reference_block_number: u32,
 }
 
@@ -344,14 +344,14 @@ impl TryFrom<ProtoBatchHeader> for BatchHeaderV2 {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct NonSignerStakesAndSignature {
-    non_signer_quorum_bitmap_indices: Vec<u32>,
-    non_signer_pubkeys: Vec<G1Affine>,
-    quorum_apks: Vec<G1Affine>,
-    apk_g2: G2Affine,
-    sigma: G1Affine,
-    quorum_apk_indices: Vec<u32>,
-    total_stake_indices: Vec<u32>,
-    non_signer_stake_indices: Vec<Vec<u32>>,
+    pub(crate) non_signer_quorum_bitmap_indices: Vec<u32>,
+    pub(crate) non_signer_pubkeys: Vec<G1Affine>,
+    pub(crate) quorum_apks: Vec<G1Affine>,
+    pub(crate) apk_g2: G2Affine, 
+    pub(crate) sigma: G1Affine,
+    pub(crate) quorum_apk_indices: Vec<u32>,
+    pub(crate) total_stake_indices: Vec<u32>,
+    pub(crate) non_signer_stake_indices: Vec<Vec<u32>>,
 }
 
 impl NonSignerStakesAndSignature {

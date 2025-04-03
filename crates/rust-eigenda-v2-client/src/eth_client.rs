@@ -139,6 +139,8 @@ impl EthClient {
             ]),
         };
 
+        println!("[eth_call] Request: {:?}", request);
+
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => {
                 serde_json::from_value(result.result).map_err(EthClientError::SerdeJSON)

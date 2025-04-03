@@ -1,9 +1,12 @@
 use std::time::Duration;
 
-use crate::{core::{OnDemandPayment, PaymentMetadata, ReservedPayment}, generated::disperser::v2::GetPaymentStateReply};
+use crate::{
+    core::{OnDemandPayment, PaymentMetadata, ReservedPayment},
+    generated::disperser::v2::GetPaymentStateReply,
+};
 use ark_ff::Zero;
 use ethereum_types::Address;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PeriodRecord {
@@ -139,16 +142,54 @@ impl Accountant {
     /// Sets the accountant's state from the disperser's response
     /// We require disperser to return a valid set of global parameters, but optional
     /// account level on/off-chain state.
-    /// 
-    /// If on-chain fields are not present, we use dummy values that disable accountant 
+    ///
+    /// If on-chain fields are not present, we use dummy values that disable accountant
     /// from using the corresponding payment method.
     /// If off-chain fields are not present, we assume the account has no payment history
     /// and set accoutant state to use initial values.
-    pub fn set_payment_state(&mut self, get_payment_state_reply: &GetPaymentStateReply) -> Result<(), String> {
-        let global_params = get_payment_state_reply.payment_global_params.unwrap();
+    pub fn set_payment_state(
+        &mut self,
+        get_payment_state_reply: &GetPaymentStateReply,
+    ) -> Result<(), String> {
+        let global_params = get_payment_state_reply
+            .payment_global_params
+            .as_ref()
+            .unwrap();
         self.min_num_symbols = global_params.min_num_symbols.clone();
         self.price_per_symbol = global_params.price_per_symbol.clone();
-        self.reservation_window  = global_params.reservation_window.clone();
+        self.reservation_window = global_params.reservation_window.clone();
+
+        if get_payment_state_reply
+            .onchain_cumulative_payment
+            .is_empty()
+        {
+            self.on_demand = OnDemandPayment {
+                cumulative_payment: BigInt::zero(),
+            };
+        } else {
+            let cumulative_payment = BigInt::from_bytes_be(
+                Sign::NoSign,
+                &get_payment_state_reply.onchain_cumulative_payment,
+            );
+            self.on_demand = OnDemandPayment { cumulative_payment };
+        }
+
+        if get_payment_state_reply.cumulative_payment.is_empty() {
+            self.cumulative_payment = BigInt::zero();
+        } else {
+            let cumulative_payment = BigInt::from_bytes_be(
+                Sign::NoSign,
+                &get_payment_state_reply.cumulative_payment,
+            );
+            self.cumulative_payment = cumulative_payment;
+        }
+
+        if get_payment_state_reply.reservation.is_none() {
+            self.reservation = ReservedPayment::default()
+        } else {
+            // TODO
+            // fill reservation with values from get_payment_state_reply
+        }
 
         Ok(())
     }
@@ -178,12 +219,12 @@ fn reservation_period(timestamp: u64, bin_interval: u64) -> u64 {
 /// Checks if there are quorum numbers not allowed in the reservation
 fn quorum_check(quorum_numbers: &[u8], reservation_quorum_numbers: &[u8]) -> Result<(), String> {
     if quorum_numbers.is_empty() {
-        return Err("No quorum numbers provided".to_string())
+        return Err("No quorum numbers provided".to_string());
     }
 
     for quorum in quorum_numbers {
         if !reservation_quorum_numbers.contains(quorum) {
-            return Err("quorum number {quorum} not allowed".to_string())
+            return Err("quorum number {quorum} not allowed".to_string());
         }
     }
 

@@ -82,8 +82,8 @@ impl DisperserClient {
     /// Populates the accountant with the payment state from the disperser.
     async fn populate_accountant(&mut self) -> Result<(), String> {
         let payment_state = self.payment_state().await?;
-        self.accountant.pa
-        todo!()
+        self.accountant.set_payment_state(&payment_state)?;
+        Ok(())
     }
 
 

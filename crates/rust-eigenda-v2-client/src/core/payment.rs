@@ -9,7 +9,7 @@ pub struct PaymentMetadata {
 }
 
 /// Contains information about the on-chain state of a reserved payment.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct ReservedPayment {
     /// Reserved number of symbols per second.
     pub symbols_per_second: u64,

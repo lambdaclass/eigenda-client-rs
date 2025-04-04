@@ -76,7 +76,6 @@ impl DisperserClient {
 
     pub fn disperse_blob(data: &[u8], quorums: &[u8]) {
         todo!()
-
     }
 
     /// Populates the accountant with the payment state from the disperser.
@@ -85,7 +84,6 @@ impl DisperserClient {
         self.accountant.set_payment_state(&payment_state)?;
         Ok(())
     }
-
 
     /// Returns the status of a blob with the given blob key.
     pub async fn blob_status(&mut self, blob_key: BlobKey) -> Result<BlobStatusReply, String> {

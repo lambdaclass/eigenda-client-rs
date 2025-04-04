@@ -3,7 +3,7 @@ use ark_bn254::{G1Affine, G2Affine};
 
 use super::BlobKey;
 
-#[derive(Debug, PartialEq, )]
+#[derive(Debug, PartialEq)]
 pub struct BlobCommitment {
     commitment: G1Affine,
     length_commitment: G2Affine,
@@ -50,7 +50,7 @@ impl BlobHeader {
     pub fn blob_key(&self) -> Result<BlobKey, ConversionError> {
         let payment_metadata_hash = todo!();
         let blob_commitments = todo!();
-        
+
         BlobKey::compute_blob_key(
             self.blob_version,
             blob_commitments,

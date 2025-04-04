@@ -12,7 +12,7 @@ use crate::{
         eigenda_cert::{BlobCommitment, BlobKey},
         BYTES_PER_SYMBOL,
     },
-    errors::{BlobError, ConversionError, EigenClientError, RetrievalClientError},
+    errors::{BlobError, ConversionError, EigenClientError, RetrievalClientError, TonicError},
     generated::validator::{
         retrieval_client::RetrievalClient as GrpcRetrievalClient, GetChunksRequest,
     },
@@ -123,8 +123,15 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
         verifier: V,
         grpc_endpoint_url: &str,
     ) -> Result<Self, RetrievalClientError> {
-        let endpoint = Endpoint::from_str(grpc_endpoint_url)?.tls_config(ClientTlsConfig::new())?;
-        let client = Arc::new(Mutex::new(GrpcRetrievalClient::connect(endpoint).await?));
+        let endpoint = Endpoint::from_str(grpc_endpoint_url)
+            .map_err(TonicError::TransportError)?
+            .tls_config(ClientTlsConfig::new())
+            .map_err(TonicError::TransportError)?;
+        let client = Arc::new(Mutex::new(
+            GrpcRetrievalClient::connect(endpoint)
+                .await
+                .map_err(TonicError::TransportError)?,
+        ));
 
         Ok(Self {
             client,
@@ -230,7 +237,7 @@ impl<E: RetrievalEthClient, C: RetrievalChainStateProvider, V: RetrievalVerifier
             .await
             .get_chunks(request)
             .await
-            .map_err(RetrievalClientError::TonicStatusError)?
+            .map_err(|e| RetrievalClientError::Tonic(TonicError::StatusError(e)))?
             .into_inner();
 
         if reply.chunk_encoding_format == 0 {
@@ -330,7 +337,10 @@ fn get_assignments(
 
     let num_operators = operators.len();
     if num_operators > blob_param.max_num_operators as usize {
-        return Err(RetrievalClientError::TooManyOperators(num_operators, blob_param.max_num_operators as usize));
+        return Err(RetrievalClientError::TooManyOperators(
+            num_operators,
+            blob_param.max_num_operators as usize,
+        ));
     }
 
     // TODO: Maybe not very "rusty" to have a struct defined inside a fn call

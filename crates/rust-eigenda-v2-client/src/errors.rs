@@ -72,10 +72,6 @@ pub enum RetrievalClientError {
     InvalidChunks(String),
     #[error("too many operators ({0}) to get assignments: max number of operators is {1}")]
     TooManyOperators(usize, usize),
-    #[error(transparent)]
-    TonicStatusError(#[from] tonic::Status),
-    #[error(transparent)]
-    TonicTransportError(#[from] tonic::transport::Error),
     #[error("Missing operator for quorum id: {0}")]
     MissingOperator(u8),
     #[error("Missing total stake for quorum id: {0}")]
@@ -84,4 +80,15 @@ pub enum RetrievalClientError {
     MissingBlobVersionParams(u16),
     #[error("Missing assignment in operator reply: {0}")]
     MissingAssignment(usize),
+    #[error(transparent)]
+    Tonic(#[from] TonicError),
+}
+
+/// Errors specific to Tonic
+#[derive(Debug, thiserror::Error)]
+pub enum TonicError {
+    #[error(transparent)]
+    StatusError(#[from] tonic::Status),
+    #[error(transparent)]
+    TransportError(#[from] tonic::transport::Error),
 }

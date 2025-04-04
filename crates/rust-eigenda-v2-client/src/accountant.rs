@@ -177,18 +177,25 @@ impl Accountant {
         if get_payment_state_reply.cumulative_payment.is_empty() {
             self.cumulative_payment = BigInt::zero();
         } else {
-            let cumulative_payment = BigInt::from_bytes_be(
-                Sign::NoSign,
-                &get_payment_state_reply.cumulative_payment,
-            );
+            let cumulative_payment =
+                BigInt::from_bytes_be(Sign::NoSign, &get_payment_state_reply.cumulative_payment);
             self.cumulative_payment = cumulative_payment;
         }
 
-        if get_payment_state_reply.reservation.is_none() {
-            self.reservation = ReservedPayment::default()
-        } else {
-            // TODO
-            // fill reservation with values from get_payment_state_reply
+        match get_payment_state_reply.reservation.as_ref() {
+            Some(reservation) => {
+                self.reservation = ReservedPayment::try_from(reservation.clone())?;
+            }
+            None => {
+                self.reservation = ReservedPayment::default();
+            }
+        }
+
+        for record in get_payment_state_reply.period_records.iter() {
+            self.period_records.push(PeriodRecord {
+                index: record.index as u32,
+                usage: record.usage,
+            });
         }
 
         Ok(())

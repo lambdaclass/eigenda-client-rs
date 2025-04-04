@@ -1,4 +1,3 @@
-use crate::core::BlobHeader;
 use ethereum_types::Address;
 use secp256k1::{SecretKey, SECP256K1};
 use sha2::{Digest, Sha256};

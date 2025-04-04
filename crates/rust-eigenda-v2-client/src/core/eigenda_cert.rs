@@ -84,7 +84,7 @@ impl TryFrom<ProtoBlobCommitment> for BlobCommitment {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct BlobHeader {
+pub struct BlobHeader {
     pub(crate) version: u16,
     pub(crate) quorum_numbers: Vec<u8>,
     pub(crate) commitment: BlobCommitment,

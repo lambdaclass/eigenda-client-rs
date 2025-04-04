@@ -1,6 +1,8 @@
 use ethereum_types::Address;
 use num_bigint::BigInt;
 
+use crate::generated::disperser::v2::{GetPaymentStateReply, Reservation};
+
 #[derive(Debug, PartialEq)]
 pub struct PaymentMetadata {
     pub account_id: Address,
@@ -29,6 +31,27 @@ impl ReservedPayment {
     pub fn is_active(&self, current_timestamp: u64) -> bool {
         // TODO: consider using chrono for timestamps.
         self.start_timestamp <= current_timestamp && self.end_timestamp >= current_timestamp
+    }
+}
+
+impl TryFrom<Reservation> for ReservedPayment {
+    type Error = String;
+
+    fn try_from(reservation: Reservation) -> Result<Self, Self::Error> {
+        let quorum_numbers = reservation
+            .quorum_numbers
+            .iter()
+            .map(|x| *x as u8)
+            .collect();
+        let quorum_splits = reservation.quorum_splits.iter().map(|x| *x as u8).collect();
+
+        Ok(ReservedPayment {
+            symbols_per_second: reservation.symbols_per_second,
+            start_timestamp: reservation.start_timestamp as u64,
+            end_timestamp: reservation.end_timestamp as u64,
+            quorum_numbers,
+            quorum_splits,
+        })
     }
 }
 

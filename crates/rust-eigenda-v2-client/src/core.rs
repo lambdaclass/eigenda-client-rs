@@ -1,19 +1,19 @@
 mod blob;
+mod blob_header;
+mod blob_key;
+mod blob_request_signer;
 pub mod eigenda_cert;
 mod encoded_payload;
 mod payload;
-mod blob_request_signer;
-mod blob_header;
 mod payment;
-mod blob_key;
 
 pub use blob::Blob;
+pub use blob_header::BlobHeader;
+pub use blob_key::BlobKey;
+pub use blob_request_signer::{BlobRequestSigner, LocalBlobRequestSigner};
 pub use encoded_payload::EncodedPayload;
 pub use payload::Payload;
-pub use blob_request_signer::{BlobRequestSigner, LocalBlobRequestSigner};
-pub use blob_header::BlobHeader;
-pub use payment::{PaymentMetadata, ReservedPayment, OnDemandPayment};
-pub use blob_key::BlobKey;
+pub use payment::{OnDemandPayment, PaymentMetadata, ReservedPayment};
 
 pub(crate) const BYTES_PER_SYMBOL: usize = 32;
 

@@ -21,7 +21,7 @@ pub struct BlobKey([u8; 32]);
 impl BlobKey {
     pub(crate) fn compute_blob_key(
         blob_version: u16,
-        blob_commitment: BlobCommitment,
+        blob_commitments: BlobCommitment,
         quorum_numbers: Vec<u8>,
         payment_metadata_hash: [u8; 32],
     ) -> Result<BlobKey, ConversionError> {
@@ -40,8 +40,14 @@ impl BlobKey {
                 // AbiBlobCommitments
                 // Commitment
                 Token::Tuple(vec![
-                    Token::Uint(U256::from_big_endian(&blob_commitment.commitment.x)), // commitment X
-                    Token::Uint(U256::from_big_endian(&blob_commitment.commitment.y)), // commitment Y
+                    Token::Uint(
+                        U256::from_dec_str(&blob_commitments.commitment.x.to_string())
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                    ), // commitment X
+                    Token::Uint(
+                        U256::from_dec_str(&blob_commitments.commitment.y.to_string())
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                    ), // commitment Y
                 ]),
                 // Most cryptography library serializes a G2 point by having
                 // A0 followed by A1 for both X, Y field of G2. However, ethereum
@@ -53,36 +59,60 @@ impl BlobKey {
                 Token::Tuple(vec![
                     // X
                     Token::FixedArray(vec![
-                        Token::Uint(U256::from_big_endian(
-                            &blob_commitment.length_commitment.x_a1,
-                        )),
-                        Token::Uint(U256::from_big_endian(
-                            &blob_commitment.length_commitment.x_a0,
-                        )),
+                        Token::Uint(
+                            U256::from_dec_str(
+                                &blob_commitments.length_commitment.x.c1.to_string(),
+                            )
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
+                        Token::Uint(
+                            U256::from_dec_str(
+                                &blob_commitments.length_commitment.x.c0.to_string(),
+                            )
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
                     ]),
                     // Y
                     Token::FixedArray(vec![
-                        Token::Uint(U256::from_big_endian(
-                            &blob_commitment.length_commitment.y_a1,
-                        )),
-                        Token::Uint(U256::from_big_endian(
-                            &blob_commitment.length_commitment.y_a0,
-                        )),
+                        Token::Uint(
+                            U256::from_dec_str(
+                                &blob_commitments.length_commitment.y.c1.to_string(),
+                            )
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
+                        Token::Uint(
+                            U256::from_dec_str(
+                                &blob_commitments.length_commitment.y.c0.to_string(),
+                            )
+                            .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
                     ]),
                 ]),
                 // Same as above
                 // LengthProof
                 Token::Tuple(vec![
                     Token::FixedArray(vec![
-                        Token::Uint(U256::from_big_endian(&blob_commitment.length_proof.x_a1)),
-                        Token::Uint(U256::from_big_endian(&blob_commitment.length_proof.x_a0)),
+                        Token::Uint(
+                            U256::from_dec_str(&blob_commitments.length_proof.x.c1.to_string())
+                                .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
+                        Token::Uint(
+                            U256::from_dec_str(&blob_commitments.length_proof.x.c0.to_string())
+                                .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
                     ]),
                     Token::FixedArray(vec![
-                        Token::Uint(U256::from_big_endian(&blob_commitment.length_proof.y_a1)),
-                        Token::Uint(U256::from_big_endian(&blob_commitment.length_proof.y_a0)),
+                        Token::Uint(
+                            U256::from_dec_str(&blob_commitments.length_proof.y.c1.to_string())
+                                .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
+                        Token::Uint(
+                            U256::from_dec_str(&blob_commitments.length_proof.y.c0.to_string())
+                                .map_err(|e| ConversionError::U256Conversion(e.to_string()))?,
+                        ),
                     ]),
                 ]),
-                Token::Uint(blob_commitment.length.into()), // DataLength
+                Token::Uint(blob_commitments.length.into()), // DataLength
             ]),
         ]);
 
@@ -102,7 +132,6 @@ impl BlobKey {
         keccak.update(&packed_bytes);
         let mut blob_key = [0u8; 32];
         keccak.finalize(&mut blob_key);
-        
         Ok(BlobKey(blob_key))
     }
 

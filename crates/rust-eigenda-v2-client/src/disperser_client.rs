@@ -152,7 +152,6 @@ impl DisperserClient {
         Ok(())
     }
 
-
     /// Returns the status of a blob with the given blob key.
     pub async fn blob_status(&mut self, blob_key: BlobKey) -> Result<BlobStatusReply, String> {
         let request = BlobStatusRequest {

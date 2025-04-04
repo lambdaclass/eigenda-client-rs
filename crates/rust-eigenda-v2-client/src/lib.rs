@@ -1,11 +1,11 @@
+pub mod accountant;
 pub mod core;
 pub mod disperser_client;
 pub mod errors;
-pub mod retrieval_client;
-mod utils;
-pub mod verifier;
-pub mod accountant;
 pub mod prover;
+pub mod retrieval_client;
+pub mod utils;
+pub mod verifier;
 
 #[allow(clippy::all)]
 pub(crate) mod generated {

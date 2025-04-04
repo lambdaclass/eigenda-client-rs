@@ -66,4 +66,6 @@ pub enum EthClientError {
     SerdeJSON(#[from] serde_json::Error),
     #[error("RPC: {0}")]
     Rpc(RpcErrorResponse),
+    #[error("Invalid response: {0}")]
+    InvalidResponse(String),
 }

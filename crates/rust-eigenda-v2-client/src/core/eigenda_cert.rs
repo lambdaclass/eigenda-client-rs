@@ -396,7 +396,7 @@ impl NonSignerStakesAndSignature {
             Token::Tuple(vec![
                 Token::Uint(U256::from_big_endian(&self.sigma.x.into_bigint().to_bytes_be())),
                 Token::Uint(U256::from_big_endian(&self.sigma.y.into_bigint().to_bytes_be())),
-            ]),
+            ]), 
             Token::Array(
                 self.quorum_apk_indices
                     .iter()

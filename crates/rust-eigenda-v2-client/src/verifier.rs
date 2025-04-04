@@ -1,6 +1,7 @@
-use ethabi::{Address, ParamType, Token};
+use ethabi::{Address, Param, ParamType, Token};
+use ethereum_types::U256;
 
-use crate::{core::eigenda_cert::{self, EigenDACert}, errors::EigenClientError, eth_client::EthClient};
+use crate::{core::eigenda_cert::{self, EigenDACert}, errors::{EigenClientError, EthClientError}, eth_client::EthClient};
 
 /// Trait that defines the methods for the ethclient used by the verifier, needed in order to mock it for tests
 #[async_trait::async_trait]
@@ -37,9 +38,11 @@ impl CertVerifierClient for EthClient {
                                     ParamType::Uint(256)
                                 ]), // commitment
                                 ParamType::Tuple(vec![
+                                    ParamType::FixedArray(Box::new(ParamType::Uint(256)), 2),
                                     ParamType::FixedArray(Box::new(ParamType::Uint(256)), 2)
                                 ]), // length commitment
                                 ParamType::Tuple(vec![
+                                    ParamType::FixedArray(Box::new(ParamType::Uint(256)), 2),
                                     ParamType::FixedArray(Box::new(ParamType::Uint(256)), 2)
                                 ]), // length proof
                                 ParamType::Uint(32),
@@ -63,6 +66,7 @@ impl CertVerifierClient for EthClient {
                         ParamType::Uint(256)
                     ]))),
                     ParamType::Tuple(vec![
+                        ParamType::FixedArray(Box::new(ParamType::Uint(256)), 2),
                         ParamType::FixedArray(Box::new(ParamType::Uint(256)), 2)
                     ]),
                     ParamType::Tuple(vec![
@@ -75,10 +79,12 @@ impl CertVerifierClient for EthClient {
                 ]), // non_signer_stakes_and_signature
                 ParamType::Bytes,
             ]);
+
         let mut data = func_selector.to_vec();
-        data.append(&mut ethabi::encode(&eigenda_cert.batch_header.to_tokens()));
-        data.append(&mut ethabi::encode(&eigenda_cert.blob_inclusion_info.to_tokens()));
-        data.append(&mut ethabi::encode(&eigenda_cert.non_signer_stakes_and_signature.to_tokens()));
+
+        data.append(&mut ethabi::encode(&[Token::Tuple(eigenda_cert.batch_header.to_tokens())]));
+        data.append(&mut ethabi::encode(&[Token::Tuple(eigenda_cert.blob_inclusion_info.to_tokens())]));
+        data.append(&mut ethabi::encode(&[Token::Tuple(eigenda_cert.non_signer_stakes_and_signature.to_tokens())]));
         data.append(&mut ethabi::encode(&[Token::Bytes(eigenda_cert.signed_quorum_numbers.clone())]));
 
         let res = self
@@ -89,7 +95,11 @@ impl CertVerifierClient for EthClient {
             )
             .await
             .map_err(EigenClientError::EthClient)?;
-        println!("Response: {:?}", res);
+        if res == "0x" {
+            return Err(EigenClientError::EthClient(
+                EthClientError::InvalidResponse("Invalid response".to_string()),
+            ));
+        }
 
         Ok(())
     }
@@ -109,7 +119,7 @@ impl<T: CertVerifierClient> Verifier<T> {
 mod test {
     use std::str::FromStr;
 
-    use crate::utils::SecretUrl;
+    use crate::{eth_client::RpcErrorResponse, utils::SecretUrl};
 
     use super::*;
     use ark_bn254::{G1Affine, G2Affine};
@@ -119,13 +129,13 @@ mod test {
         // Create a test EigenDACert object with dummy data
         EigenDACert {
             batch_header: eigenda_cert::BatchHeaderV2 {
-                batch_root: [0; 32],
-                reference_block_number: 0,
+                batch_root: [1; 32],
+                reference_block_number: 1,
             },
             blob_inclusion_info: eigenda_cert::BlobInclusionInfo {
                 blob_certificate : eigenda_cert::BlobCertificate {
                     blob_header: eigenda_cert::BlobHeader {
-                        version: 0,
+                        version: 1,
                         quorum_numbers: vec![0; 32],
                         commitment : eigenda_cert::BlobCommitment {
                             commitment: eigenda_cert::G1Commitment { x: vec![0;32], y: vec![0;32] },
@@ -138,7 +148,7 @@ mod test {
                     signature: vec![0; 32],
                     relay_keys: vec![0; 32],
                 },
-                blob_index: 0,
+                blob_index: 2,
                 inclusion_proof: vec![0; 32],
             },
             non_signer_stakes_and_signature: eigenda_cert::NonSignerStakesAndSignature {
@@ -148,7 +158,7 @@ mod test {
                 apk_g2: G2Affine::identity(),
                 sigma: G1Affine::identity(),
                 quorum_apk_indices: vec![0; 32],
-                total_stake_indices: vec![0; 32],
+                total_stake_indices: vec![1; 32],
                 non_signer_stake_indices: vec![vec![0; 32]; 32],
             },
             signed_quorum_numbers: vec![0; 32],
@@ -157,7 +167,7 @@ mod test {
 
     #[tokio::test]
     async fn test_verify_cert_v2_fails() {
-        let eth_client = EthClient::new(SecretUrl::new(Url::from_str("http://localhost:8545").unwrap()), Address::from_str("0x0000000000000000000000000000000000000000").unwrap());
+        let eth_client = EthClient::new(SecretUrl::new(Url::from_str("http://localhost:8545").unwrap()), Address::from_str("0x0000000000000000000000000000000000000001").unwrap());
         let eigenda_cert = get_test_eigenda_cert();
 
         let verifier = Verifier { eth_client };
@@ -165,5 +175,25 @@ mod test {
         let result = verifier.verify_cert_v2(&eigenda_cert).await;
 
         assert!(result.is_err());
+        assert!( matches!(result, Err(EigenClientError::EthClient(EthClientError::InvalidResponse(_)))) );
+    }
+
+    #[tokio::test]
+    async fn test_verify_cert_v2() {
+        let eth_client = EthClient::new(SecretUrl::new(Url::from_str("http://localhost:8545").unwrap()), Address::from_str("0x5FbDB2315678afecb367f032d93F642f64180aa3").unwrap());
+        let eigenda_cert = get_test_eigenda_cert();
+
+        let verifier = Verifier { eth_client };
+
+        let result = verifier.verify_cert_v2(&eigenda_cert).await;
+
+        println!("Result: {:?}", result);
+        assert!(result.is_err());
+        
+        assert!( matches!(result, Err(EigenClientError::EthClient(EthClientError::Rpc(_)))) );
+        let Err(EigenClientError::EthClient(EthClientError::Rpc(response))) = &result else { 
+            panic!("Expected RpcError");
+        };
+        assert_eq!(response.error.message, "execution reverted: revert: FakeVerifier: verifyCertV2 called");
     }
 }

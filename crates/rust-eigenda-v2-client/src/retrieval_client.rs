@@ -166,11 +166,16 @@ impl RetrievalChainStateProvider for EthClient {
             for (operator_idx, socket_token) in
                 inner_token.clone().into_array().unwrap().iter().enumerate()
             {
+                let mut total_stake = U256::zero();
+                let quorum_operators = operators.get(&(quorum_id as u8)).unwrap();
+                for (_, operator) in quorum_operators {
+                    total_stake += operator.stake;
+                }
                 let socket = string_from_token(socket_token)?;
                 totals.insert(
                     quorum_id as u8,
                     OperatorInfo {
-                        stake: U256::default(), // TODO: this field is unused here, we should probably use a separate struct for operator info
+                        stake: total_stake,
                         index: operator_idx,
                         _socket: socket,
                     },

@@ -38,16 +38,19 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
     // TODO: change error type.
     fn sign(&self, blob_header: BlobHeader) -> Result<Vec<u8>, String> {
         let blob_key = blob_header.blob_key().map_err(|_| "Error")?;
-        let secp = Secp256k1::new();
         let message = Message::from_slice(&blob_key.to_bytes()).map_err(|_| "Error")?;
-        let sig = secp.sign_ecdsa(&message, &self.private_key);
+        let sig = SECP256K1.sign_ecdsa_recoverable(&message, &self.private_key);
 
-        Ok(sig.serialize_der().to_vec())
+        let mut sig_bytes = Vec::with_capacity(65);
+        let (recovery_id, signature) = sig.serialize_compact();
+        sig_bytes.extend_from_slice(&signature);
+        sig_bytes.push(recovery_id.to_i32() as u8);
+
+        Ok(sig_bytes)
     }
 
     fn sign_payment_state_request(&self, timestamp: u64) -> Result<Vec<u8>, String> {
         let account_id = self.account_id()?;
-        println!("account_id: {:?}", account_id);
 
         let mut keccak_hash = Keccak::v256();
         keccak_hash.update(&(account_id.as_bytes().len() as u32).to_be_bytes());
@@ -56,12 +59,8 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
         let mut account_id_hash: [u8; 32] = [0u8; 32];
         keccak_hash.finalize(&mut account_id_hash);
 
-        println!("account_id_hash: {:?}", account_id_hash);
-
         // Hash the account ID bytes with SHA-256
         let hash = Sha256::digest(account_id_hash);
-
-        println!("sha hash: {:?}", hash);
 
         // Create a secp256k1 message from the hash
         let message = secp256k1::Message::from_slice(hash.as_slice())

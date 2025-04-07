@@ -1,8 +1,7 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use ark_bn254::G1Affine;
 use ark_ff::Zero;
-use base64::engine::general_purpose;
-use base64::Engine;
 use hex::ToHex;
 use rust_kzg_bn254_primitives::helpers::to_fr_array;
 
@@ -120,11 +119,12 @@ impl DisperserClient {
             commitment: core_blob_commitment,
             quorum_numbers: quorums.to_vec(),
             payment_header_hash: PaymentHeader{
-                account_id: payment.account_id.to_string(),
+                account_id: payment.account_id.encode_hex(),
                 timestamp: payment.timestamp,
                 cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
             }.hash().unwrap(),
         };
+        println!("blob header: {:?}", blob_header);
         let signature = self.signer.sign(blob_header.clone())?;
         let disperse_request = DisperseBlobRequest{
             blob: data.to_vec(),
@@ -133,7 +133,7 @@ impl DisperserClient {
                 commitment: Some(blob_commitment),
                 quorum_numbers: quorums.to_vec().iter().map(|&x| x as u32).collect(),
                 payment_header: Some(PaymentHeaderProto{
-                    account_id: payment.account_id.to_string(),
+                    account_id: payment.account_id.encode_hex(),
                     timestamp: payment.timestamp,
                     cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
                 }),
@@ -144,8 +144,6 @@ impl DisperserClient {
         let reply = self.rpc_client.disperse_blob(disperse_request).await
         .map(|response| response.into_inner())
         .map_err(|status| format!("Failed RPC call: {}", status))?;
-
-        
 
         if blob_header.blob_key().unwrap().to_bytes().to_vec() != reply.blob_key {
             return Err("blob key mismatch".to_string());
@@ -177,18 +175,15 @@ impl DisperserClient {
     /// Returns the payment state of the disperser client
     pub async fn payment_state(&mut self) -> Result<GetPaymentStateReply, String> {
         let account_id = self.signer.account_id()?.encode_hex();
-        println!("account_id: {}", account_id);
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|_| "Failed to get current time")?
             .as_nanos();
-        println!("timestamp: {}", timestamp);
         let signature = self.signer.sign_payment_state_request(timestamp as u64)?;
-        println!("sig vec: {:?}", signature);
-        println!("signature: {}", general_purpose::STANDARD.encode(signature.clone()));
         let request = GetPaymentStateRequest {
             account_id,
             signature,
+            timestamp: timestamp as u64
         };
 
         self.rpc_client
@@ -243,7 +238,7 @@ mod tests {
         };
         let mut client = DisperserClient::new(config, signer, rpc_client, prover, accountant).await;
         let data = vec![1, 2, 3, 4, 5];
-        let blob_version = 1;
+        let blob_version = 0;
         let quorums = vec![1, 2];
         let result = client.disperse_blob(&data, blob_version, &quorums).await.unwrap();
         println!("Disperse result: {:?}", result.0);

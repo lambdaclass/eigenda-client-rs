@@ -33,10 +33,7 @@ impl BlobKey {
         let packed_bytes = ethabi::encode(&[
             Token::Uint(blob_version.into()), // BlobVersion
             Token::Bytes(
-                sorted_quorums
-                    .iter()
-                    .flat_map(|q| q.to_be_bytes())
-                    .collect(),
+                sorted_quorums.clone(),
             ), // SortedQuorums
             Token::Tuple(vec![
                 // AbiBlobCommitments
@@ -117,6 +114,8 @@ impl BlobKey {
                 Token::Uint(blob_commitments.length.into()), // DataLength
             ]),
         ]);
+
+        println!("packed bytes: {:?}", packed_bytes);
 
         let mut keccak = Keccak::v256();
         keccak.update(&packed_bytes);

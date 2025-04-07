@@ -298,3 +298,67 @@ impl EigenDACert {
         )
     }
 }
+
+#[cfg(test)]
+mod test {
+    use ark_bn254::{Fq, Fq2, Fr, G1Affine, G2Affine};
+    use ark_ff::{BigInt, PrimeField};
+    use ark_serialize::CanonicalDeserialize;
+
+    use crate::core::{blob_key, eigenda_cert::{BlobCommitment, BlobHeader, PaymentHeader}};
+
+    fn convert_by_padding_empty_byte(data: &[u8]) -> Vec<u8> {
+        let parse_size = 32 - 1;
+    
+        let chunk_count = data.len().div_ceil(parse_size);
+        let mut valid_data = Vec::with_capacity(data.len() + chunk_count);
+    
+        for chunk in data.chunks(parse_size) {
+            valid_data.push(0x00); // Add the padding byte (0x00)
+            valid_data.extend_from_slice(chunk);
+        }
+        valid_data
+    }
+
+    #[test]
+    fn test_blob_key() {
+        let commitment_x = Fq::from_be_bytes_mod_order(&[47, 227, 202, 245, 187, 25, 196, 187, 223, 98, 97, 40, 194, 244, 32, 4, 86, 33, 187, 1, 12, 189, 12, 90, 30, 142, 112, 147, 146, 88, 249, 104]);
+        let commitment_y = Fq::from_be_bytes_mod_order(&[20, 91, 31, 26, 187, 114, 156, 101, 50, 219, 233, 184, 99, 191, 205, 182, 6, 159, 229, 182, 109, 197, 9, 213, 141, 125, 13, 219, 52, 178, 139, 146]);
+
+        let length_commitment_x0 = Fq::from_be_bytes_mod_order(&[8, 65, 223, 70, 245, 141, 117, 195, 15, 108, 165, 232, 225, 16, 48, 241, 231, 234, 102, 199, 125, 117, 21, 163, 169, 94, 92, 250, 30, 145, 48, 171]);
+        let length_commitment_x1 = Fq::from_be_bytes_mod_order(&[39, 3, 247, 81, 154, 56, 239, 185, 210, 149, 195, 180, 108, 221, 16, 192, 77, 138, 32, 157, 171, 219, 234, 248, 239, 93, 143, 126, 56, 204, 132, 102]);
+        
+        let length_commitment_y0 = Fq::from_be_bytes_mod_order(&[14, 234, 250, 97, 56, 209, 123, 188, 191, 0, 109, 187, 173, 92, 82, 77, 236, 38, 75, 145, 102, 0, 177, 111, 42, 228, 130, 88, 227, 21, 3, 90]);
+        let length_commitment_y1 = Fq::from_be_bytes_mod_order(&[13, 18, 145, 28, 229, 160, 11, 188, 145, 68, 148, 75, 22, 196, 32, 197, 2, 113, 249, 176, 226, 81, 16, 168, 135, 74, 84, 143, 61, 183, 164, 42]);
+
+        let length_proof_x0 = Fq::from_be_bytes_mod_order(&[4, 58, 192, 64, 99, 97, 56, 104, 197, 61, 137, 206, 145, 118, 143, 216, 15, 40, 191, 251, 238, 37, 248, 97, 241, 136, 54, 180, 15, 235, 174, 42]);
+        let length_proof_x1 = Fq::from_be_bytes_mod_order(&[35, 146, 74, 104, 5, 13, 42, 164, 44, 141, 107, 115, 154, 6, 65, 146, 27, 136, 169, 149, 78, 27, 120, 242, 27, 172, 53, 196, 199, 133, 149, 205]);
+
+        let length_proof_y0 = Fq::from_be_bytes_mod_order(&[14, 180, 121, 174, 188, 158, 3, 195, 182, 93, 117, 123, 138, 52, 168, 68, 157, 43, 93, 68, 112, 237, 17, 72, 183, 227, 111, 102, 189, 137, 223, 43]);
+        let length_proof_y1 = Fq::from_be_bytes_mod_order(&[31, 226, 236, 78, 97, 43, 93, 185, 199, 205, 181, 172, 68, 53, 100, 1, 200, 41, 56, 150, 142, 207, 252, 194, 255, 160, 210, 92, 132, 123, 146, 191]);
+
+        let commitments = BlobCommitment {
+            commitment: G1Affine::new(commitment_x, commitment_y),
+            length_commitment: G2Affine::new(Fq2::new(length_commitment_x0, length_commitment_x1), Fq2::new(length_commitment_y0, length_commitment_y1)),
+            length_proof: G2Affine::new(Fq2::new(length_proof_x0, length_proof_x1), Fq2::new(length_proof_y0, length_proof_y1)),
+            length: 64,
+        };
+        use std::ops::Mul;
+        let res = commitments.commitment.mul(Fr::from(1u64));
+        let payment_header = PaymentHeader {
+            account_id: "0x0000000000000000000000000000000000000123".to_string(),
+            timestamp: 5,
+            cumulative_payment: num_bigint::BigInt::from(100).to_signed_bytes_be(),
+        };
+        let blob_header = BlobHeader {
+            version: 0,
+            quorum_numbers: vec![0, 1],
+            commitment: commitments,
+            payment_header_hash: payment_header.hash().unwrap(),
+        };
+
+        let blob_key = blob_header.blob_key().unwrap();
+        // e2fc52cb6213041838c20164eac05a7660b741518d5c14060e47c89ed3dd175b has verified in solidity  with chisel
+        assert_eq!(hex::encode(blob_key.to_bytes()), "e2fc52cb6213041838c20164eac05a7660b741518d5c14060e47c89ed3dd175b");
+    }
+}

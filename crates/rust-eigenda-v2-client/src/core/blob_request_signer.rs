@@ -1,5 +1,5 @@
 use ethereum_types::Address;
-use secp256k1::{SecretKey, SECP256K1};
+use secp256k1::{Message, Secp256k1, SecretKey, SECP256K1};
 use sha2::{Digest, Sha256};
 
 use super::eigenda_cert::BlobHeader;
@@ -37,10 +37,11 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
     // TODO: change error type.
     fn sign(&self, blob_header: BlobHeader) -> Result<Vec<u8>, String> {
         let blob_key = blob_header.blob_key().map_err(|_| "Error")?;
-        let blob_key_bytes = blob_key;
+        let secp = Secp256k1::new();
+        let message = Message::from_slice(&blob_key.to_bytes()).map_err(|_| "Error")?;
+        let sig = secp.sign_ecdsa(&message, &self.private_key);
 
-        // TODO: wait for having a single BlobCommitment type
-        todo!();
+        Ok(sig.serialize_der().to_vec())
     }
 
     fn sign_payment_state_request(&self) -> Result<Vec<u8>, String> {

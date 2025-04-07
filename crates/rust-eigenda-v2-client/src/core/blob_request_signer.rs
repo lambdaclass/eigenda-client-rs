@@ -8,7 +8,7 @@ use super::eigenda_cert::BlobHeader;
 pub trait BlobRequestSigner {
     fn sign(&self, blob_header: BlobHeader) -> Result<Vec<u8>, String>;
 
-    fn sign_payment_state_request(&self) -> Result<Vec<u8>, String>;
+    fn sign_payment_state_request(&self, timestamp: u64) -> Result<Vec<u8>, String>;
 
     fn account_id(&self) -> Result<Address, String>;
 }
@@ -45,17 +45,14 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
         Ok(sig.serialize_der().to_vec())
     }
 
-    fn sign_payment_state_request(&self) -> Result<Vec<u8>, String> {
+    fn sign_payment_state_request(&self, timestamp: u64) -> Result<Vec<u8>, String> {
         let account_id = self.account_id()?;
         println!("account_id: {:?}", account_id);
-
-        //todo: real timestamp
-        let fixedTimestamp : u64 = 1609459200000000000;
 
         let mut keccak_hash = Keccak::v256();
         keccak_hash.update(&(account_id.as_bytes().len() as u32).to_be_bytes());
         keccak_hash.update(account_id.as_bytes());
-        keccak_hash.update(&fixedTimestamp.to_be_bytes());
+        keccak_hash.update(&timestamp.to_be_bytes());
         let mut account_id_hash: [u8; 32] = [0u8; 32];
         keccak_hash.finalize(&mut account_id_hash);
 

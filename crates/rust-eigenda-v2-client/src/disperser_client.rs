@@ -178,7 +178,12 @@ impl DisperserClient {
     pub async fn payment_state(&mut self) -> Result<GetPaymentStateReply, String> {
         let account_id = self.signer.account_id()?.encode_hex();
         println!("account_id: {}", account_id);
-        let signature = self.signer.sign_payment_state_request()?;
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| "Failed to get current time")?
+            .as_nanos();
+        println!("timestamp: {}", timestamp);
+        let signature = self.signer.sign_payment_state_request(timestamp as u64)?;
         println!("sig vec: {:?}", signature);
         println!("signature: {}", general_purpose::STANDARD.encode(signature.clone()));
         let request = GetPaymentStateRequest {

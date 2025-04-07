@@ -4,9 +4,9 @@ use ark_ff::Zero;
 use rust_kzg_bn254_primitives::helpers::to_fr_array;
 
 use crate::accountant::Accountant;
-use crate::core::eigenda_cert::{BlobCommitment, BlobHeader};
+use crate::core::eigenda_cert::{BlobCommitment, BlobHeader, PaymentHeader};
 use crate::core::{BlobKey, BlobRequestSigner, LocalBlobRequestSigner};
-use crate::generated::common::v2::{BlobHeader as BlobHeaderProto, PaymentHeader};
+use crate::generated::common::v2::{BlobHeader as BlobHeaderProto, PaymentHeader as PaymentHeaderProto};
 use crate::generated::common::BlobCommitment as BlobCommitmentProto;
 use crate::generated::disperser::v2::{
     disperser_client, BlobCommitmentReply, BlobCommitmentRequest, BlobStatus, BlobStatusReply, BlobStatusRequest, DisperseBlobRequest, GetPaymentStateReply, GetPaymentStateRequest
@@ -65,20 +65,22 @@ pub struct DisperserClient {
 
 // todo: add locks
 impl DisperserClient {
-    pub fn new(
+    pub async fn new(
         config: DisperserClientConfig,
         signer: LocalBlobRequestSigner,
         rpc_client: disperser_client::DisperserClient<tonic::transport::Channel>,
         prover: Prover,
         accountant: Accountant,
     ) -> Self {
-        Self {
+        let mut disperser = Self {
             config,
             signer,
             rpc_client,
             prover,
             accountant,
-        }
+        };
+        disperser.populate_accountant().await.unwrap();
+        disperser
     }
 
     //todo: error handling
@@ -102,7 +104,7 @@ impl DisperserClient {
         let Some(blob_commitment) = blob_commitment_reply.blob_commitment else {
             return Err("blob commitment is empty".to_string());
         };
-        let core_blob_commitment: BlobCommitment = blob_commitment.try_into().unwrap();
+        let core_blob_commitment: BlobCommitment = blob_commitment.clone().try_into().unwrap();
         if core_blob_commitment.length != symbol_length as u32 {
             return Err(format!(
                 "blob commitment length {} does not match symbol length {}",
@@ -114,16 +116,20 @@ impl DisperserClient {
             version: blob_version,
             commitment: core_blob_commitment,
             quorum_numbers: quorums.to_vec(),
-            payment_header_hash: todo!(),
+            payment_header_hash: PaymentHeader{
+                account_id: payment.account_id.to_string(),
+                timestamp: payment.timestamp,
+                cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
+            }.hash().unwrap(),
         };
-        let signature = self.signer.sign(blob_header)?;
+        let signature = self.signer.sign(blob_header.clone())?;
         let disperse_request = DisperseBlobRequest{
             blob: data.to_vec(),
             blob_header: Some(BlobHeaderProto{
                 version: blob_header.version as u32,
                 commitment: Some(blob_commitment),
                 quorum_numbers: quorums.to_vec().iter().map(|&x| x as u32).collect(),
-                payment_header: Some(PaymentHeader{
+                payment_header: Some(PaymentHeaderProto{
                     account_id: payment.account_id.to_string(),
                     timestamp: payment.timestamp,
                     cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),

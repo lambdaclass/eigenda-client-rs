@@ -1,5 +1,4 @@
 mod blob;
-mod blob_header;
 mod blob_key;
 mod blob_request_signer;
 pub mod eigenda_cert;
@@ -8,7 +7,6 @@ mod payload;
 mod payment;
 
 pub use blob::Blob;
-pub use blob_header::BlobHeader;
 pub use blob_key::BlobKey;
 pub use blob_request_signer::{BlobRequestSigner, LocalBlobRequestSigner};
 pub use encoded_payload::EncodedPayload;

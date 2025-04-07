@@ -17,18 +17,18 @@ pub struct PeriodRecord {
 #[derive(Debug, PartialEq)]
 pub struct Accountant {
     // on-chain states
-    account_id: Address,
-    reservation: ReservedPayment,
-    on_demand: OnDemandPayment,
-    reservation_window: u64,
-    price_per_symbol: u64,
-    min_num_symbols: u64,
+    pub account_id: Address,
+    pub reservation: ReservedPayment,
+    pub on_demand: OnDemandPayment,
+    pub reservation_window: u64,
+    pub price_per_symbol: u64,
+    pub min_num_symbols: u64,
 
     // local accounting
-    period_records: Vec<PeriodRecord>,
-    cumulative_payment: BigInt,
+    pub period_records: Vec<PeriodRecord>,
+    pub cumulative_payment: BigInt,
 
-    num_bins: u32,
+    pub num_bins: u32,
 }
 
 impl Accountant {

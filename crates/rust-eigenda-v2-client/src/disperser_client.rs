@@ -1,6 +1,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ark_ff::Zero;
+use base64::engine::general_purpose;
+use base64::Engine;
+use hex::ToHex;
 use rust_kzg_bn254_primitives::helpers::to_fr_array;
 
 use crate::accountant::Accountant;
@@ -173,8 +176,11 @@ impl DisperserClient {
 
     /// Returns the payment state of the disperser client
     pub async fn payment_state(&mut self) -> Result<GetPaymentStateReply, String> {
-        let account_id = self.signer.account_id()?.to_string();
+        let account_id = self.signer.account_id()?.encode_hex();
+        println!("account_id: {}", account_id);
         let signature = self.signer.sign_payment_state_request()?;
+        println!("sig vec: {:?}", signature);
+        println!("signature: {}", general_purpose::STANDARD.encode(signature.clone()));
         let request = GetPaymentStateRequest {
             account_id,
             signature,
@@ -183,7 +189,7 @@ impl DisperserClient {
         self.rpc_client
             .get_payment_state(request)
             .await
-            .map(|response| response.into_inner())
+            .map(|response: tonic::Response<GetPaymentStateReply>| response.into_inner())
             .map_err(|status| format!("Failed RPC call: {}", status))
     }
 
@@ -197,5 +203,46 @@ impl DisperserClient {
             .await
             .map(|response| response.into_inner())
             .map_err(|status| format!("Failed RPC call: {}", status))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{accountant::Accountant, core::{LocalBlobRequestSigner, OnDemandPayment}, disperser_client::DisperserClient, generated::disperser::v2::disperser_client, prover::Prover};
+
+    use super::DisperserClientConfig;
+
+
+    #[tokio::test]
+    async fn test_disperse() {
+        let config = DisperserClientConfig{
+            host: "https://disperser-preprod-holesky.eigenda.xyz".to_string(),
+            port: 443,
+            use_secure_grpc_flag: false,
+            timeout: std::time::Duration::new(5, 0),
+            max_retrieve_blob_size_bytes: 1024 * 1024 * 10,
+        };
+        let signer = LocalBlobRequestSigner::new("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcded").unwrap();
+        let rpc_client = disperser_client::DisperserClient::connect("https://disperser-preprod-holesky.eigenda.xyz:443").await.unwrap();
+        let prover = Prover{};
+        let accountant = Accountant{
+            account_id: "0x1aa8226f6d354380dDE75eE6B634875c4203e522".parse().unwrap(),
+            reservation: Default::default(),
+            on_demand: OnDemandPayment{cumulative_payment: Default::default()},
+            reservation_window: 100,
+            price_per_symbol: 1,
+            min_num_symbols: 1,
+            period_records: vec![],
+            cumulative_payment: Default::default(),
+            num_bins: 10,
+        };
+        let mut client = DisperserClient::new(config, signer, rpc_client, prover, accountant).await;
+        let data = vec![1, 2, 3, 4, 5];
+        let blob_version = 1;
+        let quorums = vec![1, 2];
+        let result = client.disperse_blob(&data, blob_version, &quorums).await.unwrap();
+        println!("Disperse result: {:?}", result.0);
+        println!("Blob key: {:?}", result.1);
+        assert!(false);
     }
 }

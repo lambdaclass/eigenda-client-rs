@@ -1,6 +1,7 @@
 use ethereum_types::Address;
 use secp256k1::{Message, Secp256k1, SecretKey, SECP256K1};
 use sha2::{Digest, Sha256};
+use tiny_keccak::{Hasher, Keccak};
 
 use super::eigenda_cert::BlobHeader;
 
@@ -46,9 +47,24 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
 
     fn sign_payment_state_request(&self) -> Result<Vec<u8>, String> {
         let account_id = self.account_id()?;
+        println!("account_id: {:?}", account_id);
+
+        //todo: real timestamp
+        let fixedTimestamp : u64 = 1609459200000000000;
+
+        let mut keccak_hash = Keccak::v256();
+        keccak_hash.update(&(account_id.as_bytes().len() as u32).to_be_bytes());
+        keccak_hash.update(account_id.as_bytes());
+        keccak_hash.update(&fixedTimestamp.to_be_bytes());
+        let mut account_id_hash: [u8; 32] = [0u8; 32];
+        keccak_hash.finalize(&mut account_id_hash);
+
+        println!("account_id_hash: {:?}", account_id_hash);
 
         // Hash the account ID bytes with SHA-256
-        let hash = Sha256::digest(account_id.as_bytes());
+        let hash = Sha256::digest(account_id_hash);
+
+        println!("sha hash: {:?}", hash);
 
         // Create a secp256k1 message from the hash
         let message = secp256k1::Message::from_slice(hash.as_slice())
@@ -68,7 +84,13 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
 
     fn account_id(&self) -> Result<Address, String> {
         let public_key = self.private_key.public_key(&SECP256K1);
-        let address = Address::from_slice(&public_key.serialize_uncompressed()[12..]);
+        let public_key_uncompressed = public_key.serialize_uncompressed();
+        let public_key_bytes = &public_key_uncompressed[1..];
+        let mut keccak = Keccak::v256();
+        keccak.update(&public_key_bytes);
+        let mut public_key_hash: [u8; 32] = [0u8; 32];
+        keccak.finalize(&mut public_key_hash);
+        let address = Address::from_slice(&public_key_hash[12..]);
         Ok(address)
     }
 }

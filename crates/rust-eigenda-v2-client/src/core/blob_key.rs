@@ -1,5 +1,6 @@
 use ethabi::Token;
 use ethereum_types::U256;
+use serde::de;
 use tiny_keccak::{Hasher, Keccak};
 
 use crate::errors::ConversionError;
@@ -16,6 +17,7 @@ use super::eigenda_cert::BlobCommitment;
 //
 // Note that two blobs can have the same content but different headers,
 // so they are allowed to both exist in the system.
+#[derive(Debug)]
 pub struct BlobKey([u8; 32]);
 
 impl BlobKey {

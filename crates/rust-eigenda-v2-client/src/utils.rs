@@ -4,6 +4,7 @@ use ark_ff::{fields::PrimeField, AdditiveGroup, BigInteger, Fp, Fp2};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use rust_kzg_bn254_primitives::helpers::{lexicographically_largest, read_g1_point_from_bytes_be};
+use ark_ff::Zero;
 
 const COMPRESSED_SMALLEST: u8 = 0b10 << 6;
 const COMPRESSED_LARGEST: u8 = 0b11 << 6;
@@ -38,6 +39,7 @@ pub(crate) fn coeff_to_eval_poly(
 /// g1_commitment_from_bytes converts a byte slice to a G1Affine point.
 /// The points received are in compressed form.
 pub fn g1_commitment_from_bytes(bytes: &[u8]) -> Result<G1Affine, ConversionError> {
+    println!("[g1_commitment_from_bytes] bytes len: {:?}", bytes.len());
     read_g1_point_from_bytes_be(bytes).map_err(|e| ConversionError::G1Point(e.to_string()))
 }
 
@@ -103,7 +105,13 @@ pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionErro
     )?;
 
     // Ensure Y has the correct lexicographic property
-    if (msb_mask == COMPRESSED_LARGEST) != lexicographically_largest(&point.y.c0) {
+    let mut lex_largest = lexicographically_largest(&point.y.c1);
+    if !lex_largest {
+        if point.y.c1.is_zero() {
+            lex_largest = lexicographically_largest(&point.y.c0);
+        }
+    }
+    if (msb_mask == COMPRESSED_LARGEST) != lex_largest {
         point.y.neg_in_place();
     }
 

@@ -1,7 +1,10 @@
+use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ark_bn254::G1Affine;
 use ark_ff::Zero;
+use base64::engine::general_purpose;
+use base64::Engine;
 use hex::ToHex;
 use rust_kzg_bn254_primitives::helpers::to_fr_array;
 
@@ -113,19 +116,25 @@ impl DisperserClient {
                 core_blob_commitment.length, symbol_length
             ));
         }
+        println!("payment {:?}", payment);
+        let account_id: String = payment.account_id.encode_hex();
+        //todo: remove alloy and implement to checksum manually
+        let account_id: String = alloy_primitives::Address::from_str(&account_id).unwrap().to_checksum(None);
 
         let blob_header = BlobHeader {
             version: blob_version,
-            commitment: core_blob_commitment,
+            commitment: core_blob_commitment.clone(),
             quorum_numbers: quorums.to_vec(),
             payment_header_hash: PaymentHeader{
-                account_id: payment.account_id.encode_hex(),
+                account_id: account_id.clone(),
                 timestamp: payment.timestamp,
                 cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
             }.hash().unwrap(),
         };
-        println!("blob header: {:?}", blob_header);
+
         let signature = self.signer.sign(blob_header.clone())?;
+        println!("signature {}", hex::encode(&signature));
+        println!("sign {:?}", signature.clone());
         let disperse_request = DisperseBlobRequest{
             blob: data.to_vec(),
             blob_header: Some(BlobHeaderProto{
@@ -133,13 +142,16 @@ impl DisperserClient {
                 commitment: Some(blob_commitment),
                 quorum_numbers: quorums.to_vec().iter().map(|&x| x as u32).collect(),
                 payment_header: Some(PaymentHeaderProto{
-                    account_id: payment.account_id.encode_hex(),
+                    account_id: account_id,
                     timestamp: payment.timestamp,
                     cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
                 }),
             }),
             signature
         };
+
+        //println!("disperse_request: {:?}", disperse_request);
+        //println!("signature: {:?}", general_purpose::STANDARD.encode(&disperse_request.signature));
 
         let reply = self.rpc_client.disperse_blob(disperse_request).await
         .map(|response| response.into_inner())
@@ -208,7 +220,9 @@ impl DisperserClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::{accountant::Accountant, core::{LocalBlobRequestSigner, OnDemandPayment}, disperser_client::DisperserClient, generated::disperser::v2::disperser_client, prover::Prover};
+    use num_bigint::BigInt;
+
+    use crate::{accountant::Accountant, core::{LocalBlobRequestSigner, OnDemandPayment, ReservedPayment}, disperser_client::DisperserClient, generated::disperser::v2::disperser_client, prover::Prover};
 
     use super::DisperserClientConfig;
 
@@ -227,19 +241,25 @@ mod tests {
         let prover = Prover{};
         let accountant = Accountant{
             account_id: "0x1aa8226f6d354380dDE75eE6B634875c4203e522".parse().unwrap(),
-            reservation: Default::default(),
-            on_demand: OnDemandPayment{cumulative_payment: Default::default()},
-            reservation_window: 100,
+            reservation: ReservedPayment{
+                symbols_per_second: 100,
+                start_timestamp: 174414123146638200,
+                end_timestamp: 17441412314663820000,
+                quorum_numbers: vec![0, 1],
+                quorum_splits: vec![50, 50],
+            },
+            on_demand: OnDemandPayment{cumulative_payment: BigInt::from(500)},
+            reservation_window: 6,
             price_per_symbol: 1,
-            min_num_symbols: 1,
+            min_num_symbols: 100,
             period_records: vec![],
-            cumulative_payment: Default::default(),
-            num_bins: 10,
+            cumulative_payment: BigInt::from(500),
+            num_bins: 3,
         };
         let mut client = DisperserClient::new(config, signer, rpc_client, prover, accountant).await;
         let data = vec![1, 2, 3, 4, 5];
         let blob_version = 0;
-        let quorums = vec![1, 2];
+        let quorums = vec![0, 1];
         let result = client.disperse_blob(&data, blob_version, &quorums).await.unwrap();
         println!("Disperse result: {:?}", result.0);
         println!("Blob key: {:?}", result.1);

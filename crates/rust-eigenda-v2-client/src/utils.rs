@@ -140,7 +140,12 @@ pub fn g2_commitment_to_bytes(point: &G2Affine) -> Result<Vec<u8>, ConversionErr
     point.serialize_compressed(&mut bytes)?;
     switch_endianess(&mut bytes);
 
-    let mask = match lexicographically_largest(&point.y.c0) {
+    let mut lex_largest = lexicographically_largest(&point.y.c1);
+    if !lex_largest && point.y.c1.is_zero() {
+        lex_largest = lexicographically_largest(&point.y.c0);
+    }
+
+    let mask = match lex_largest {
         true => COMPRESSED_LARGEST,
         false => COMPRESSED_SMALLEST,
     };

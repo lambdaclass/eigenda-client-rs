@@ -35,7 +35,6 @@ impl LocalBlobRequestSigner {
 }
 
 impl BlobRequestSigner for LocalBlobRequestSigner {
-    // TODO: change error type.
     fn sign(&self, blob_header: BlobHeader) -> Result<Vec<u8>, SignerError> {
         let blob_key = blob_header.blob_key()?;
         let message = Message::from_slice(&blob_key.to_bytes())?;

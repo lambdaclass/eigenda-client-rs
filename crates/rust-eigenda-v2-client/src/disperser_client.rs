@@ -88,7 +88,6 @@ impl DisperserClient {
         Ok(disperser)
     }
 
-    //todo: error handling
     pub async fn disperse_blob(
         &mut self,
         data: &[u8],

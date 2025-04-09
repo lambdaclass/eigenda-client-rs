@@ -60,7 +60,7 @@ impl Accountant {
             num_bins: max(num_bins, MIN_NUM_BINS),
         }
     }
-    /// TODO: add docs
+    // Provides and records payment information
     pub fn account_blob(
         &mut self,
         timestamp: i64,

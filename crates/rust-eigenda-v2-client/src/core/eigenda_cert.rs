@@ -97,7 +97,7 @@ impl BlobHeader {
             self.version,
             self.commitment.clone(),
             self.quorum_numbers.clone(),
-            self.payment_header_hash, //todo: is payment header hash the same as payment metadata hash?
+            self.payment_header_hash,
         )
     }
 }

@@ -31,10 +31,8 @@ impl BlobKey {
         sorted_quorums.sort();
 
         let packed_bytes = ethabi::encode(&[
-            Token::Uint(blob_version.into()), // BlobVersion
-            Token::Bytes(
-                sorted_quorums.clone(),
-            ), // SortedQuorums
+            Token::Uint(blob_version.into()),     // BlobVersion
+            Token::Bytes(sorted_quorums.clone()), // SortedQuorums
             Token::Tuple(vec![
                 // AbiBlobCommitments
                 // Commitment

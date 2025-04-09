@@ -96,7 +96,6 @@ impl Accountant {
             return Ok(BigInt::zero());
         }
 
-
         // reservation not available, rollback reservation records, attempt on-demand
         //todo: rollback on-demand if disperser respond with some type of rejection?
         relative_period_record.usage -= symbol_usage;

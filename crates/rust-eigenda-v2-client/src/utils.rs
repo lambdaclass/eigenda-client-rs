@@ -1,10 +1,10 @@
 use crate::{errors::ConversionError, generated::common::G1Commitment};
 use ark_bn254::{Fr, G1Affine, G2Affine};
+use ark_ff::Zero;
 use ark_ff::{fields::PrimeField, AdditiveGroup, BigInteger, Fp, Fp2};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use rust_kzg_bn254_primitives::helpers::{lexicographically_largest, read_g1_point_from_bytes_be};
-use ark_ff::Zero;
 
 const COMPRESSED_SMALLEST: u8 = 0b10 << 6;
 const COMPRESSED_LARGEST: u8 = 0b11 << 6;

@@ -9,6 +9,7 @@ use crate::core::eigenda_cert::{BlobCommitment, BlobHeader, PaymentHeader};
 use crate::core::{
     BlobKey, BlobRequestSigner, LocalBlobRequestSigner, OnDemandPayment, ReservedPayment,
 };
+use crate::errors::DisperseError;
 use crate::generated::common::v2::{
     BlobHeader as BlobHeaderProto, PaymentHeader as PaymentHeaderProto,
 };
@@ -31,12 +32,16 @@ impl DisperserClientConfig {
         disperser_rpc: String,
         private_key: String,
         use_secure_grpc_flag: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, DisperseError> {
         if disperser_rpc.is_empty() {
-            return Err("disperser_rpc cannot be empty".to_string());
+            return Err(DisperseError::ConfigInitialization(
+                "disperser_rpc cannot be empty".to_string(),
+            ));
         }
         if private_key.is_empty() {
-            return Err("private_key cannot be empty".to_string());
+            return Err(DisperseError::ConfigInitialization(
+                "private_key cannot be empty".to_string(),
+            ));
         }
 
         Ok(Self {
@@ -55,17 +60,18 @@ pub struct DisperserClient {
 
 // todo: add locks
 impl DisperserClient {
-    pub async fn new(config: DisperserClientConfig) -> Result<Self, String> {
-        let mut endpoint = Channel::from_shared(config.disperser_rpc.clone()).unwrap();
+    pub async fn new(config: DisperserClientConfig) -> Result<Self, DisperseError> {
+        let mut endpoint = Channel::from_shared(config.disperser_rpc.clone())
+            .map_err(|_| DisperseError::InvalidURI(config.disperser_rpc.clone()))?;
         if config.use_secure_grpc_flag {
             let tls: ClientTlsConfig = ClientTlsConfig::new();
-            endpoint = endpoint.tls_config(tls).unwrap();
+            endpoint = endpoint.tls_config(tls)?;
         }
-        let channel = endpoint.connect().await.unwrap();
+        let channel = endpoint.connect().await?;
         let rpc_client = disperser_client::DisperserClient::new(channel);
-        let signer = LocalBlobRequestSigner::new(&config.private_key).unwrap();
+        let signer = LocalBlobRequestSigner::new(&config.private_key)?;
         let accountant = Accountant::new(
-            signer.account_id().unwrap(),
+            signer.account_id(),
             ReservedPayment::default(),
             OnDemandPayment::default(),
             0,
@@ -78,7 +84,7 @@ impl DisperserClient {
             rpc_client,
             accountant,
         };
-        disperser.populate_accountant().await.unwrap();
+        disperser.populate_accountant().await?;
         Ok(disperser)
     }
 
@@ -88,40 +94,37 @@ impl DisperserClient {
         data: &[u8],
         blob_version: u16,
         quorums: &[u8],
-    ) -> Result<(BlobStatus, BlobKey), String> {
+    ) -> Result<(BlobStatus, BlobKey), DisperseError> {
         if quorums.is_empty() {
-            return Err("quorum numbers must be provided".to_string());
+            return Err(DisperseError::EmptyQuorums);
         }
 
         let symbol_length = data.len().div_ceil(BYTES_PER_SYMBOL).next_power_of_two();
         let payment = self
             .accountant
             .account_blob(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos() as i64,
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() as i64,
                 symbol_length as u64,
                 quorums,
             )
-            .unwrap();
+            .map_err(DisperseError::Accountant)?;
 
         let blob_commitment_reply = self.blob_commitment(data).await?;
         let Some(blob_commitment) = blob_commitment_reply.blob_commitment else {
-            return Err("blob commitment is empty".to_string());
+            return Err(DisperseError::EmptyBlobCommitment);
         };
-        let core_blob_commitment: BlobCommitment = blob_commitment.clone().try_into().unwrap();
+        let core_blob_commitment: BlobCommitment = blob_commitment.clone().try_into()?;
         if core_blob_commitment.length != symbol_length as u32 {
-            return Err(format!(
-                "blob commitment length {} does not match symbol length {}",
-                core_blob_commitment.length, symbol_length
+            return Err(DisperseError::CommitmentLengthMismatch(
+                core_blob_commitment.length,
+                symbol_length,
             ));
         }
         let account_id: String = payment.account_id.encode_hex();
 
         //todo?: remove alloy and implement to checksum manually
         let account_id: String = alloy_primitives::Address::from_str(&account_id)
-            .unwrap()
+            .map_err(|_| DisperseError::AccountID)?
             .to_checksum(None);
 
         let blob_header = BlobHeader {
@@ -133,8 +136,7 @@ impl DisperserClient {
                 timestamp: payment.timestamp,
                 cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
             }
-            .hash()
-            .unwrap(),
+            .hash()?,
         };
 
         let signature = self.signer.sign(blob_header.clone())?;
@@ -158,27 +160,29 @@ impl DisperserClient {
             .disperse_blob(disperse_request)
             .await
             .map(|response| response.into_inner())
-            .map_err(|status| format!("Failed RPC call: {}", status))?;
+            .map_err(DisperseError::FailedRPC)?;
 
-        if blob_header.blob_key().unwrap().to_bytes().to_vec() != reply.blob_key {
-            return Err("blob key mismatch".to_string());
+        if blob_header.blob_key()?.to_bytes().to_vec() != reply.blob_key {
+            return Err(DisperseError::BlobKeyMismatch);
         }
 
-        Ok((
-            BlobStatus::try_from(reply.result).unwrap(),
-            blob_header.blob_key().unwrap(),
-        ))
+        Ok((BlobStatus::try_from(reply.result)?, blob_header.blob_key()?))
     }
 
     /// Populates the accountant with the payment state from the disperser.
-    async fn populate_accountant(&mut self) -> Result<(), String> {
+    async fn populate_accountant(&mut self) -> Result<(), DisperseError> {
         let payment_state = self.payment_state().await?;
-        self.accountant.set_payment_state(&payment_state)?;
+        self.accountant
+            .set_payment_state(&payment_state)
+            .map_err(DisperseError::Accountant)?;
         Ok(())
     }
 
     /// Returns the status of a blob with the given blob key.
-    pub async fn blob_status(&mut self, blob_key: BlobKey) -> Result<BlobStatusReply, String> {
+    pub async fn blob_status(
+        &mut self,
+        blob_key: BlobKey,
+    ) -> Result<BlobStatusReply, DisperseError> {
         let request = BlobStatusRequest {
             blob_key: blob_key.to_bytes().to_vec(),
         };
@@ -187,16 +191,13 @@ impl DisperserClient {
             .get_blob_status(request)
             .await
             .map(|response| response.into_inner())
-            .map_err(|status| format!("Failed RPC call: {}", status))
+            .map_err(DisperseError::FailedRPC)
     }
 
     /// Returns the payment state of the disperser client
-    pub async fn payment_state(&mut self) -> Result<GetPaymentStateReply, String> {
-        let account_id = self.signer.account_id()?.encode_hex();
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| "Failed to get current time")?
-            .as_nanos();
+    pub async fn payment_state(&mut self) -> Result<GetPaymentStateReply, DisperseError> {
+        let account_id = self.signer.account_id().encode_hex();
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
         let signature = self.signer.sign_payment_state_request(timestamp as u64)?;
         let request = GetPaymentStateRequest {
             account_id,
@@ -208,10 +209,13 @@ impl DisperserClient {
             .get_payment_state(request)
             .await
             .map(|response: tonic::Response<GetPaymentStateReply>| response.into_inner())
-            .map_err(|status| format!("Failed RPC call: {}", status))
+            .map_err(DisperseError::FailedRPC)
     }
 
-    pub async fn blob_commitment(&mut self, data: &[u8]) -> Result<BlobCommitmentReply, String> {
+    pub async fn blob_commitment(
+        &mut self,
+        data: &[u8],
+    ) -> Result<BlobCommitmentReply, DisperseError> {
         let request = BlobCommitmentRequest {
             blob: data.to_vec(),
         };
@@ -220,7 +224,7 @@ impl DisperserClient {
             .get_blob_commitment(request)
             .await
             .map(|response| response.into_inner())
-            .map_err(|status| format!("Failed RPC call: {}", status))
+            .map_err(DisperseError::FailedRPC)
     }
 }
 
@@ -276,6 +280,37 @@ mod tests {
         let data = vec![1, 2, 3, 4, 5];
         let blob_version = 0;
         let quorums = vec![0, 1];
+        let result = client
+            .disperse_blob(&data, blob_version, &quorums)
+            .await
+            .unwrap();
+        println!("Disperse result: {:?}", result.0);
+        println!("Blob key: {}", hex::encode(result.1.to_bytes()));
+    }
+
+    #[tokio::test]
+    async fn test_double_disperse_secure() {
+        dotenv().ok();
+
+        // Set your private key in .env file
+        let private_key: String =
+            env::var("SIGNER_PRIVATE_KEY").expect("SIGNER_PRIVATE_KEY must be set");
+
+        let config = DisperserClientConfig {
+            disperser_rpc: "https://disperser-preprod-holesky.eigenda.xyz".to_string(),
+            private_key,
+            use_secure_grpc_flag: true,
+        };
+        let mut client = DisperserClient::new(config).await.unwrap();
+        let data = vec![1, 2, 3, 4, 5];
+        let blob_version = 0;
+        let quorums = vec![0, 1];
+        let result = client
+            .disperse_blob(&data, blob_version, &quorums)
+            .await
+            .unwrap();
+        println!("Disperse result: {:?}", result.0);
+        println!("Blob key: {}", hex::encode(result.1.to_bytes()));
         let result = client
             .disperse_blob(&data, blob_version, &quorums)
             .await

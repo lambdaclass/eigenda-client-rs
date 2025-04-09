@@ -2,6 +2,7 @@ use std::{cmp::max, time::Duration};
 
 use crate::{
     core::{OnDemandPayment, PaymentMetadata, ReservedPayment},
+    errors::AccountantError,
     generated::disperser::v2::GetPaymentStateReply,
 };
 use ark_ff::Zero;
@@ -65,7 +66,7 @@ impl Accountant {
         timestamp: i64,
         num_symbols: u64,
         quorums: &[u8],
-    ) -> Result<PaymentMetadata, String> {
+    ) -> Result<PaymentMetadata, AccountantError> {
         let cumulative_payment = self.blob_payment_info(num_symbols, quorums, timestamp)?;
 
         let payment_metadata = PaymentMetadata {
@@ -91,7 +92,7 @@ impl Accountant {
         num_symbols: u64,
         quorums: &[u8],
         timestamp: i64,
-    ) -> Result<BigInt, String> {
+    ) -> Result<BigInt, AccountantError> {
         let current_reservation_period =
             get_reservation_info_by_nanosecond(timestamp, self.reservation_window);
         let symbol_usage = self.symbols_charged(num_symbols);
@@ -102,7 +103,7 @@ impl Accountant {
         // first attempt to use the active reservation
         let bin_limit = self.reservation.symbols_per_second * self.reservation_window;
         if relative_period_record.usage <= bin_limit {
-            if quorum_check(quorums, &self.reservation.quorum_numbers).is_err() {
+            if !quorum_check(quorums, &self.reservation.quorum_numbers) {
                 return Ok(BigInt::zero());
             }
             return Ok(BigInt::zero());
@@ -117,7 +118,7 @@ impl Accountant {
             && symbol_usage <= bin_limit
         {
             overflow_period_record.usage += relative_period_record.usage - bin_limit;
-            if quorum_check(quorums, &self.reservation.quorum_numbers).is_err() {
+            if !quorum_check(quorums, &self.reservation.quorum_numbers) {
                 return Ok(BigInt::zero());
             }
             return Ok(BigInt::zero());
@@ -131,13 +132,13 @@ impl Accountant {
 
         let required_quorums = vec![0, 1];
         if self.cumulative_payment <= self.on_demand.cumulative_payment {
-            if quorum_check(quorums, &required_quorums).is_err() {
+            if !quorum_check(quorums, &required_quorums) {
                 return Ok(BigInt::zero());
             }
             return Ok(self.cumulative_payment.clone());
         }
 
-        Err("neither reservation nor on-demand payment is available".to_string())
+        Err(AccountantError::PaymentNotAvailable)
     }
 
     /// Returns the chargeable price for a given data length
@@ -178,11 +179,11 @@ impl Accountant {
     pub fn set_payment_state(
         &mut self,
         get_payment_state_reply: &GetPaymentStateReply,
-    ) -> Result<(), String> {
+    ) -> Result<(), AccountantError> {
         let global_params = get_payment_state_reply
             .payment_global_params
             .as_ref()
-            .unwrap();
+            .ok_or(AccountantError::PaymentReply)?;
         self.min_num_symbols = global_params.min_num_symbols;
         self.price_per_symbol = global_params.price_per_symbol;
         self.reservation_window = global_params.reservation_window;
@@ -212,7 +213,7 @@ impl Accountant {
 
         match get_payment_state_reply.reservation.as_ref() {
             Some(reservation) => {
-                self.reservation = ReservedPayment::try_from(reservation.clone())?;
+                self.reservation = ReservedPayment::from(reservation.clone());
             }
             None => {
                 self.reservation = ReservedPayment::default();
@@ -252,16 +253,16 @@ fn reservation_period(timestamp: u64, bin_interval: u64) -> u64 {
 }
 
 /// Checks if there are quorum numbers not allowed in the reservation
-fn quorum_check(quorum_numbers: &[u8], reservation_quorum_numbers: &[u8]) -> Result<(), String> {
+fn quorum_check(quorum_numbers: &[u8], reservation_quorum_numbers: &[u8]) -> bool {
     if quorum_numbers.is_empty() {
-        return Err("No quorum numbers provided".to_string());
+        return false;
     }
 
     for quorum in quorum_numbers {
         if !reservation_quorum_numbers.contains(quorum) {
-            return Err("quorum number {quorum} not allowed".to_string());
+            return false;
         }
     }
 
-    Ok(())
+    true
 }

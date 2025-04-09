@@ -34,10 +34,8 @@ impl ReservedPayment {
     }
 }
 
-impl TryFrom<Reservation> for ReservedPayment {
-    type Error = String;
-
-    fn try_from(reservation: Reservation) -> Result<Self, Self::Error> {
+impl From<Reservation> for ReservedPayment {
+    fn from(reservation: Reservation) -> Self {
         let quorum_numbers = reservation
             .quorum_numbers
             .iter()
@@ -45,13 +43,13 @@ impl TryFrom<Reservation> for ReservedPayment {
             .collect();
         let quorum_splits = reservation.quorum_splits.iter().map(|x| *x as u8).collect();
 
-        Ok(ReservedPayment {
+        ReservedPayment {
             symbols_per_second: reservation.symbols_per_second,
             start_timestamp: reservation.start_timestamp as u64,
             end_timestamp: reservation.end_timestamp as u64,
             quorum_numbers,
             quorum_splits,
-        })
+        }
     }
 }
 

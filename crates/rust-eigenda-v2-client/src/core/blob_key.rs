@@ -115,8 +115,6 @@ impl BlobKey {
             ]),
         ]);
 
-        println!("packed bytes: {:?}", packed_bytes);
-
         let mut keccak = Keccak::v256();
         keccak.update(&packed_bytes);
         let mut header_hash = [0u8; 32];

@@ -46,5 +46,7 @@ ark-ff = { workspace = true }
 ark-serialize = { workspace = true }
 ark-std = { workspace = true }
 sha2 = { workspace = true }
-base64 = "0.21"
-alloy-primitives = "1.0.0"
+alloy-primitives = { workspace = true }
+
+[dev-dependencies]
+dotenv = { workspace = true }

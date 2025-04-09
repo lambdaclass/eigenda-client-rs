@@ -3,8 +3,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ark_bn254::G1Affine;
 use ark_ff::Zero;
-use base64::engine::general_purpose;
-use base64::Engine;
 use hex::ToHex;
 use rust_kzg_bn254_primitives::helpers::to_fr_array;
 
@@ -116,7 +114,6 @@ impl DisperserClient {
                 core_blob_commitment.length, symbol_length
             ));
         }
-        println!("payment {:?}", payment);
         let account_id: String = payment.account_id.encode_hex();
         //todo: remove alloy and implement to checksum manually
         let account_id: String = alloy_primitives::Address::from_str(&account_id).unwrap().to_checksum(None);
@@ -133,8 +130,6 @@ impl DisperserClient {
         };
 
         let signature = self.signer.sign(blob_header.clone())?;
-        println!("signature {}", hex::encode(&signature));
-        println!("sign {:?}", signature.clone());
         let disperse_request = DisperseBlobRequest{
             blob: data.to_vec(),
             blob_header: Some(BlobHeaderProto{
@@ -149,9 +144,6 @@ impl DisperserClient {
             }),
             signature
         };
-
-        //println!("disperse_request: {:?}", disperse_request);
-        //println!("signature: {:?}", general_purpose::STANDARD.encode(&disperse_request.signature));
 
         let reply = self.rpc_client.disperse_blob(disperse_request).await
         .map(|response| response.into_inner())
@@ -222,13 +214,22 @@ impl DisperserClient {
 mod tests {
     use num_bigint::BigInt;
 
-    use crate::{accountant::Accountant, core::{LocalBlobRequestSigner, OnDemandPayment, ReservedPayment}, disperser_client::DisperserClient, generated::disperser::v2::disperser_client, prover::Prover};
+    use crate::{accountant::{Accountant, PeriodRecord}, core::{LocalBlobRequestSigner, OnDemandPayment, ReservedPayment}, disperser_client::DisperserClient, generated::disperser::v2::disperser_client, prover::Prover};
 
     use super::DisperserClientConfig;
+
+    use std::env;
+    use dotenv::dotenv;
 
 
     #[tokio::test]
     async fn test_disperse() {
+        dotenv().ok();
+
+        // Set your private key in .env file
+        let private_key: String = env::var("SIGNER_PRIVATE_KEY")
+            .expect("SIGNER_PRIVATE_KEY must be set");
+
         let config = DisperserClientConfig{
             host: "https://disperser-preprod-holesky.eigenda.xyz".to_string(),
             port: 443,
@@ -236,24 +237,24 @@ mod tests {
             timeout: std::time::Duration::new(5, 0),
             max_retrieve_blob_size_bytes: 1024 * 1024 * 10,
         };
-        let signer = LocalBlobRequestSigner::new("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcded").unwrap();
+        let signer = LocalBlobRequestSigner::new(&private_key).unwrap();
         let rpc_client = disperser_client::DisperserClient::connect("https://disperser-preprod-holesky.eigenda.xyz:443").await.unwrap();
         let prover = Prover{};
         let accountant = Accountant{
-            account_id: "0x1aa8226f6d354380dDE75eE6B634875c4203e522".parse().unwrap(),
+            account_id: "0xD9309b3CF1B7DBF59f53461c2a66e2783dD1766f".parse().unwrap(),
             reservation: ReservedPayment{
-                symbols_per_second: 100,
-                start_timestamp: 174414123146638200,
-                end_timestamp: 17441412314663820000,
+                symbols_per_second: 0,
+                start_timestamp: 0,
+                end_timestamp: 0,
                 quorum_numbers: vec![0, 1],
                 quorum_splits: vec![50, 50],
             },
-            on_demand: OnDemandPayment{cumulative_payment: BigInt::from(500)},
-            reservation_window: 6,
+            on_demand: OnDemandPayment{cumulative_payment: BigInt::from(100)},
+            reservation_window: 0,
             price_per_symbol: 1,
             min_num_symbols: 100,
             period_records: vec![],
-            cumulative_payment: BigInt::from(500),
+            cumulative_payment: BigInt::from(0),
             num_bins: 3,
         };
         let mut client = DisperserClient::new(config, signer, rpc_client, prover, accountant).await;
@@ -263,6 +264,5 @@ mod tests {
         let result = client.disperse_blob(&data, blob_version, &quorums).await.unwrap();
         println!("Disperse result: {:?}", result.0);
         println!("Blob key: {:?}", result.1);
-        assert!(false);
     }
 }

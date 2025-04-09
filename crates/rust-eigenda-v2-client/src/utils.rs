@@ -39,7 +39,6 @@ pub(crate) fn coeff_to_eval_poly(
 /// g1_commitment_from_bytes converts a byte slice to a G1Affine point.
 /// The points received are in compressed form.
 pub fn g1_commitment_from_bytes(bytes: &[u8]) -> Result<G1Affine, ConversionError> {
-    println!("[g1_commitment_from_bytes] bytes len: {:?}", bytes.len());
     read_g1_point_from_bytes_be(bytes).map_err(|e| ConversionError::G1Point(e.to_string()))
 }
 

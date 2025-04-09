@@ -10,8 +10,8 @@ use num_bigint::{BigInt, Sign};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PeriodRecord {
-    index: u32,
-    usage: u64,
+    pub index: u32,
+    pub usage: u64,
 }
 
 #[derive(Debug, PartialEq)]
@@ -70,6 +70,7 @@ impl Accountant {
         let symbol_usage = self.symbols_charged(num_symbols);
 
         let mut relative_period_record = self.relative_period_record(current_reservation_period);
+        relative_period_record.usage += symbol_usage;
 
         // first attempt to use the active reservation
         let bin_limit = self.reservation.symbols_per_second * self.reservation_window;
@@ -94,6 +95,7 @@ impl Accountant {
             }
             return Ok(BigInt::zero());
         }
+
 
         // reservation not available, rollback reservation records, attempt on-demand
         //todo: rollback on-demand if disperser respond with some type of rejection?
@@ -168,7 +170,7 @@ impl Accountant {
             };
         } else {
             let cumulative_payment = BigInt::from_bytes_be(
-                Sign::NoSign,
+                Sign::Plus,
                 &get_payment_state_reply.onchain_cumulative_payment,
             );
             self.on_demand = OnDemandPayment { cumulative_payment };
@@ -178,7 +180,7 @@ impl Accountant {
             self.cumulative_payment = BigInt::zero();
         } else {
             let cumulative_payment =
-                BigInt::from_bytes_be(Sign::NoSign, &get_payment_state_reply.cumulative_payment);
+                BigInt::from_bytes_be(Sign::Plus, &get_payment_state_reply.cumulative_payment);
             self.cumulative_payment = cumulative_payment;
         }
 

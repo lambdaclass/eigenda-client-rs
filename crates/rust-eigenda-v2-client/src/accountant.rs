@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{cmp::max, time::Duration};
 
 use crate::{
     core::{OnDemandPayment, PaymentMetadata, ReservedPayment},
@@ -7,6 +7,8 @@ use crate::{
 use ark_ff::Zero;
 use ethereum_types::Address;
 use num_bigint::{BigInt, Sign};
+
+const MIN_NUM_BINS: u32 = 3;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PeriodRecord {
@@ -32,6 +34,31 @@ pub struct Accountant {
 }
 
 impl Accountant {
+    pub fn new(
+        account_id: Address,
+        reservation: ReservedPayment,
+        on_demand: OnDemandPayment,
+        reservation_window: u64,
+        price_per_symbol: u64,
+        min_num_symbols: u64,
+        num_bins: u32,
+    ) -> Self {
+        let mut period_records = vec![];
+        for i in 0..num_bins {
+            period_records.push(PeriodRecord { index: i, usage: 0 });
+        }
+        Accountant {
+            account_id,
+            reservation,
+            on_demand,
+            reservation_window,
+            price_per_symbol,
+            min_num_symbols,
+            period_records,
+            cumulative_payment: BigInt::zero(),
+            num_bins: max(num_bins, MIN_NUM_BINS),
+        }
+    }
     /// TODO: add docs
     pub fn account_blob(
         &mut self,
@@ -42,7 +69,7 @@ impl Accountant {
         let cumulative_payment = self.blob_payment_info(num_symbols, quorums, timestamp)?;
 
         let payment_metadata = PaymentMetadata {
-            account_id: self.account_id.clone(),
+            account_id: self.account_id,
             timestamp,
             cumulative_payment,
         };
@@ -75,7 +102,7 @@ impl Accountant {
         // first attempt to use the active reservation
         let bin_limit = self.reservation.symbols_per_second * self.reservation_window;
         if relative_period_record.usage <= bin_limit {
-            if let Err(_) = quorum_check(quorums, &self.reservation.quorum_numbers) {
+            if quorum_check(quorums, &self.reservation.quorum_numbers).is_err() {
                 return Ok(BigInt::zero());
             }
             return Ok(BigInt::zero());
@@ -90,7 +117,7 @@ impl Accountant {
             && symbol_usage <= bin_limit
         {
             overflow_period_record.usage += relative_period_record.usage - bin_limit;
-            if let Err(_) = quorum_check(quorums, &self.reservation.quorum_numbers) {
+            if quorum_check(quorums, &self.reservation.quorum_numbers).is_err() {
                 return Ok(BigInt::zero());
             }
             return Ok(BigInt::zero());
@@ -104,7 +131,7 @@ impl Accountant {
 
         let required_quorums = vec![0, 1];
         if self.cumulative_payment <= self.on_demand.cumulative_payment {
-            if let Err(_) = quorum_check(quorums, &required_quorums) {
+            if quorum_check(quorums, &required_quorums).is_err() {
                 return Ok(BigInt::zero());
             }
             return Ok(self.cumulative_payment.clone());
@@ -125,7 +152,7 @@ impl Accountant {
             return self.min_num_symbols;
         }
         // Round up to the nearest multiple of `min_num_symbols`
-        return round_up_divide(num_symbols, self.min_num_symbols) * self.min_num_symbols;
+        round_up_divide(num_symbols, self.min_num_symbols) * self.min_num_symbols
     }
 
     fn relative_period_record(&mut self, index: u64) -> PeriodRecord {
@@ -156,9 +183,9 @@ impl Accountant {
             .payment_global_params
             .as_ref()
             .unwrap();
-        self.min_num_symbols = global_params.min_num_symbols.clone();
-        self.price_per_symbol = global_params.price_per_symbol.clone();
-        self.reservation_window = global_params.reservation_window.clone();
+        self.min_num_symbols = global_params.min_num_symbols;
+        self.price_per_symbol = global_params.price_per_symbol;
+        self.reservation_window = global_params.reservation_window;
 
         if get_payment_state_reply
             .onchain_cumulative_payment
@@ -194,7 +221,7 @@ impl Accountant {
 
         for record in get_payment_state_reply.period_records.iter() {
             self.period_records.push(PeriodRecord {
-                index: record.index as u32,
+                index: record.index,
                 usage: record.usage,
             });
         }
@@ -204,7 +231,7 @@ impl Accountant {
 }
 
 fn round_up_divide(num: u64, divisor: u64) -> u64 {
-    (num + divisor - 1) / divisor
+    num.div_ceil(divisor)
 }
 
 fn get_reservation_info_by_nanosecond(timestamp: i64, bin_interval: u64) -> u64 {

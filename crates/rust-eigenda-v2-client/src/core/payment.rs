@@ -1,7 +1,7 @@
 use ethereum_types::Address;
 use num_bigint::BigInt;
 
-use crate::generated::disperser::v2::{GetPaymentStateReply, Reservation};
+use crate::generated::disperser::v2::Reservation;
 
 #[derive(Debug, PartialEq)]
 pub struct PaymentMetadata {
@@ -55,7 +55,7 @@ impl TryFrom<Reservation> for ReservedPayment {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct OnDemandPayment {
     /// Total amount deposited by the user.
     pub cumulative_payment: BigInt,

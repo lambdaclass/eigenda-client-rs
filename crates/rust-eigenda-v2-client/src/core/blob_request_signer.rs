@@ -1,5 +1,5 @@
 use ethereum_types::Address;
-use secp256k1::{Message, Secp256k1, SecretKey, SECP256K1};
+use secp256k1::{Message, SecretKey, SECP256K1};
 use sha2::{Digest, Sha256};
 use tiny_keccak::{Hasher, Keccak};
 
@@ -79,11 +79,11 @@ impl BlobRequestSigner for LocalBlobRequestSigner {
     }
 
     fn account_id(&self) -> Result<Address, String> {
-        let public_key = self.private_key.public_key(&SECP256K1);
+        let public_key = self.private_key.public_key(SECP256K1);
         let public_key_uncompressed = public_key.serialize_uncompressed();
         let public_key_bytes = &public_key_uncompressed[1..];
         let mut keccak = Keccak::v256();
-        keccak.update(&public_key_bytes);
+        keccak.update(public_key_bytes);
         let mut public_key_hash: [u8; 32] = [0u8; 32];
         keccak.finalize(&mut public_key_hash);
         let address = Address::from_slice(&public_key_hash[12..]);

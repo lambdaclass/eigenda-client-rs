@@ -300,27 +300,10 @@ impl EigenDACert {
 
 #[cfg(test)]
 mod test {
-    use ark_bn254::{Fq, Fq2, Fr, G1Affine, G2Affine};
-    use ark_ff::{BigInt, PrimeField};
-    use ark_serialize::CanonicalDeserialize;
+    use ark_bn254::{Fq, Fq2, G1Affine, G2Affine};
+    use ark_ff::PrimeField;
 
-    use crate::core::{
-        blob_key,
-        eigenda_cert::{BlobCommitment, BlobHeader, PaymentHeader},
-    };
-
-    fn convert_by_padding_empty_byte(data: &[u8]) -> Vec<u8> {
-        let parse_size = 32 - 1;
-
-        let chunk_count = data.len().div_ceil(parse_size);
-        let mut valid_data = Vec::with_capacity(data.len() + chunk_count);
-
-        for chunk in data.chunks(parse_size) {
-            valid_data.push(0x00); // Add the padding byte (0x00)
-            valid_data.extend_from_slice(chunk);
-        }
-        valid_data
-    }
+    use crate::core::eigenda_cert::{BlobCommitment, BlobHeader, PaymentHeader};
 
     #[test]
     fn test_blob_key() {
@@ -381,8 +364,6 @@ mod test {
             ),
             length: 64,
         };
-        use std::ops::Mul;
-        let res = commitments.commitment.mul(Fr::from(1u64));
         let payment_header = PaymentHeader {
             account_id: "0x0000000000000000000000000000000000000123".to_string(),
             timestamp: 5,

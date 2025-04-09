@@ -1,6 +1,5 @@
 use ethabi::Token;
 use ethereum_types::U256;
-use serde::de;
 use tiny_keccak::{Hasher, Keccak};
 
 use crate::errors::ConversionError;

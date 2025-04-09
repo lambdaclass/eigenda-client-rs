@@ -105,10 +105,8 @@ pub fn g2_commitment_from_bytes(bytes: &[u8]) -> Result<G2Affine, ConversionErro
 
     // Ensure Y has the correct lexicographic property
     let mut lex_largest = lexicographically_largest(&point.y.c1);
-    if !lex_largest {
-        if point.y.c1.is_zero() {
-            lex_largest = lexicographically_largest(&point.y.c0);
-        }
+    if !lex_largest && point.y.c1.is_zero() {
+        lex_largest = lexicographically_largest(&point.y.c0);
     }
     if (msb_mask == COMPRESSED_LARGEST) != lex_largest {
         point.y.neg_in_place();

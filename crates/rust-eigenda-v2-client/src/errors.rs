@@ -42,7 +42,7 @@ pub enum ConversionError {
     #[error(transparent)]
     ArkSerializationError(#[from] ark_serialize::SerializationError),
     #[error("Failed to parse signed batch: {0}")]
-    SignedBatch(String)
+    SignedBatch(String),
 }
 
 /// Errors specific to the Blob type

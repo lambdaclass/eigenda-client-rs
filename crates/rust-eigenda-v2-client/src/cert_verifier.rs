@@ -9,7 +9,7 @@ use alloy_sol_types::sol_data::FixedArray;
 use ark_bn254::{Fq, G1Affine, G2Affine};
 use ark_ff::{BigInteger, Fp2, PrimeField};
 
-use crate::{contracts_bindings::{IEigenDACertVerifier::{self, getNonSignerStakesAndSignatureCall, Attestation as AttestationContract, BatchHeaderV2, IEigenDACertVerifierCalls, NonSignerStakesAndSignature as NonSignerStakesAndSignatureContract, SignedBatch as ContractSignedBatch}, BN254::{G1Point, G2Point}}, core::eigenda_cert::NonSignerStakesAndSignature, generated::{common::v2::BatchHeader, disperser::v2::{Attestation, SignedBatch}}, utils::{g1_commitment_from_bytes, g2_commitment_from_bytes}};
+use crate::{contracts_bindings::{IEigenDACertVerifier::{self, getNonSignerStakesAndSignatureCall, Attestation as AttestationContract, BatchHeaderV2, IEigenDACertVerifierCalls, NonSignerStakesAndSignature as NonSignerStakesAndSignatureContract, SignedBatch as ContractSignedBatch}, BN254::{G1Point, G2Point}}, core::eigenda_cert::NonSignerStakesAndSignature, errors::{CertVerifierError, ConversionError}, generated::{common::v2::BatchHeader, disperser::v2::{Attestation, SignedBatch}}, utils::{g1_commitment_from_bytes, g2_commitment_from_bytes}};
 
 type CertVerifierContract = IEigenDACertVerifier::IEigenDACertVerifierInstance<RootProvider<Ethereum>>;
 
@@ -30,42 +30,50 @@ impl CertVerifier {
             cert_verifier_contract,
         }
     }
-    pub async fn get_non_signer_stakes_and_signature(&self, signed_batch: SignedBatch) -> NonSignerStakesAndSignature{
-        let contract_signed_batch = self.signed_batch_proto_to_contract(signed_batch);
+    pub async fn get_non_signer_stakes_and_signature(&self, signed_batch: SignedBatch) -> Result<NonSignerStakesAndSignature,CertVerifierError>{
+        let contract_signed_batch = self.signed_batch_proto_to_contract(signed_batch)?;
         let non_signer_stakes_and_signature = self.cert_verifier_contract.getNonSignerStakesAndSignature(contract_signed_batch).call().await?;
 
-        self.non_signer_stakes_and_signature_contract_to_core(non_signer_stakes_and_signature)
+        Ok(self.non_signer_stakes_and_signature_contract_to_core(non_signer_stakes_and_signature))
     }
 
-    pub async fn quorum_numbers_required(&self) -> Vec<u8> {
-        let quorums = self.cert_verifier_contract.quorumNumbersRequired().call().await.unwrap();
-        quorums.iter().map(|q| *q as u8).collect()
+    pub async fn quorum_numbers_required(&self) -> Result<Vec<u8>,CertVerifierError>{
+        let quorums = self.cert_verifier_contract.quorumNumbersRequired().call().await?;
+        Ok(quorums.iter().map(|q| *q as u8).collect())
     }
 
-    fn signed_batch_proto_to_contract(&self, signed_batch: SignedBatch) -> ContractSignedBatch {
-        let batch_header = self.batch_header_proto_to_contract(signed_batch.header.unwrap());
-        let attestation = self.attestation_proto_to_contract(signed_batch.attestation.unwrap());
-        ContractSignedBatch {
+    fn signed_batch_proto_to_contract(&self, signed_batch: SignedBatch) -> Result<ContractSignedBatch,CertVerifierError> {
+        let batch_header = match signed_batch.header {
+            Some(header) => header,
+            None => return Err(CertVerifierError::Conversion(ConversionError::SignedBatch("Header is None".to_string()))),
+        };
+        let atteatation = match signed_batch.attestation {
+            Some(attestation) => attestation,
+            None => return Err(CertVerifierError::Conversion(ConversionError::SignedBatch("Attestation is None".to_string()))),
+        };
+        let batch_header = self.batch_header_proto_to_contract(batch_header)?;
+        let attestation = self.attestation_proto_to_contract(atteatation)?;
+        Ok(ContractSignedBatch {
             batchHeader: batch_header,
             attestation,
-        }
+        })
     }
 
-    fn batch_header_proto_to_contract(&self, batch_header: BatchHeader) -> BatchHeaderV2 {
-        BatchHeaderV2 {
-            batchRoot: alloy_primitives::FixedBytes(batch_header.batch_root.try_into().unwrap()),
+    fn batch_header_proto_to_contract(&self, batch_header: BatchHeader) -> Result<BatchHeaderV2, CertVerifierError> {
+        Ok(BatchHeaderV2 {
+            batchRoot: alloy_primitives::FixedBytes(batch_header.batch_root.try_into().map_err(|_| ConversionError::BatchHeader("Incorrect batch root".to_string()))?),
             referenceBlockNumber: batch_header.reference_block_number as u32,
-        }
+        })
     }
 
-    fn attestation_proto_to_contract(&self, attestation: Attestation) -> AttestationContract {
-        AttestationContract {
-            nonSignerPubkeys: attestation.non_signer_pubkeys.iter().map(|p| self.g1_point_from_bytes(p)).collect(),
-            quorumApks: attestation.quorum_apks.iter().map(|p| self.g1_point_from_bytes(p)).collect(),
-            sigma: self.g1_point_from_bytes(&attestation.sigma),
-            apkG2: self.g2_point_from_bytes(&attestation.apk_g2),
+    fn attestation_proto_to_contract(&self, attestation: Attestation) -> Result<AttestationContract,CertVerifierError> {
+        Ok(AttestationContract {
+            nonSignerPubkeys: attestation.non_signer_pubkeys.iter().map(|p| self.g1_point_from_bytes(p)).collect::<Result<Vec<_>, _>>()?,
+            quorumApks: attestation.quorum_apks.iter().map(|p| self.g1_point_from_bytes(p)).collect::<Result<Vec<_>, _>>()?,
+            sigma: self.g1_point_from_bytes(&attestation.sigma)?,
+            apkG2: self.g2_point_from_bytes(&attestation.apk_g2)?,
             quorumNumbers: attestation.quorum_numbers,
-        }
+        })
     }
 
     fn non_signer_stakes_and_signature_contract_to_core(&self, non_signer_stakes_and_signature: NonSignerStakesAndSignatureContract) -> NonSignerStakesAndSignature {
@@ -81,22 +89,22 @@ impl CertVerifier {
         }
     }
 
-    fn g1_point_from_bytes(&self, bytes: &[u8]) -> G1Point {
-        let g1_affine = g1_commitment_from_bytes(bytes).unwrap();
-        G1Point {
-            X: Uint::from_be_bytes::<32>(g1_affine.x.into_bigint().to_bytes_be().try_into().unwrap()),
-            Y: Uint::from_be_bytes::<32>(g1_affine.y.into_bigint().to_bytes_be().try_into().unwrap())
-        }
+    fn g1_point_from_bytes(&self, bytes: &[u8]) -> Result<G1Point, CertVerifierError> {
+        let g1_affine = g1_commitment_from_bytes(bytes)?;
+        Ok(G1Point {
+            X: Uint::from_be_bytes::<32>(g1_affine.x.into_bigint().to_bytes_be().try_into().map_err(|_| ConversionError::G1Point("Invalid x".to_string()))?),
+            Y: Uint::from_be_bytes::<32>(g1_affine.y.into_bigint().to_bytes_be().try_into().map_err(|_| ConversionError::G1Point("Invalid y".to_string()))?),
+        })
     }
 
-    fn g2_point_from_bytes(&self, bytes: &[u8]) -> G2Point {
-        let g2_affine = g2_commitment_from_bytes(bytes).unwrap();
-        G2Point {
-            X: [Uint::from_be_bytes::<32>(g2_affine.x.c0.into_bigint().to_bytes_be().try_into().unwrap()),
-                Uint::from_be_bytes::<32>(g2_affine.x.c1.into_bigint().to_bytes_be().try_into().unwrap())],
-            Y: [Uint::from_be_bytes::<32>(g2_affine.y.c0.into_bigint().to_bytes_be().try_into().unwrap()),
-                Uint::from_be_bytes::<32>(g2_affine.y.c1.into_bigint().to_bytes_be().try_into().unwrap())]
-        }
+    fn g2_point_from_bytes(&self, bytes: &[u8]) -> Result<G2Point, CertVerifierError> {
+        let g2_affine = g2_commitment_from_bytes(bytes)?;
+        Ok(G2Point {
+            X: [Uint::from_be_bytes::<32>(g2_affine.x.c0.into_bigint().to_bytes_be().try_into().map_err(|_| ConversionError::G2Point("Invalid x0".to_string()))?),
+                Uint::from_be_bytes::<32>(g2_affine.x.c1.into_bigint().to_bytes_be().try_into().map_err(|_| ConversionError::G2Point("Invalid x1".to_string()))?)],
+            Y: [Uint::from_be_bytes::<32>(g2_affine.y.c0.into_bigint().to_bytes_be().try_into().map_err(|_| ConversionError::G2Point("Invalid y0".to_string()))?),
+                Uint::from_be_bytes::<32>(g2_affine.y.c1.into_bigint().to_bytes_be().try_into().map_err(|_| ConversionError::G2Point("Invalid y1".to_string()))?)]
+        })
     }
 
     fn g1_affine_from_g1_point(&self, g1_point: &G1Point) -> G1Affine {

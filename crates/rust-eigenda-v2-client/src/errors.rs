@@ -128,4 +128,15 @@ pub enum PayloadDisperserError {
     BlobStatus,
     #[error(transparent)]
     Decode(#[from] DecodeError),
+    #[error(transparent)]
+    CertVerifier(#[from] CertVerifierError),
+}
+
+/// Errors specific to the CertVerifier
+#[derive(Debug, thiserror::Error)]
+pub enum CertVerifierError {
+    #[error(transparent)]
+    Conversion(#[from] ConversionError),
+    #[error(transparent)]
+    Alloy(#[from] alloy_contract::Error),
 }

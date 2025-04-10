@@ -19,7 +19,7 @@ impl PayloadDisperser {
     pub async fn new(disperser_config: DisperserClientConfig, payload_config: PayloadDisperserConfig) -> Result<Self,PayloadDisperserError> {
         let disperser_client = DisperserClient::new(disperser_config).await?;
         let cert_verifier = CertVerifier::new(payload_config.cert_verifier_address.clone(), payload_config.eth_rpc_url.clone());
-        let required_quorums = cert_verifier.quorum_numbers_required().await;
+        let required_quorums = cert_verifier.quorum_numbers_required().await?;
         Ok(PayloadDisperser {
             disperser_client,
             config: payload_config,
@@ -44,13 +44,13 @@ impl PayloadDisperser {
         Ok(blob_key)
     }
 
-    pub async fn get_inclusion_data(&mut self, blob_key: &BlobKey) -> Result<Option<EigenDACert>, PayloadDisperserError> {
-        let status = self.disperser_client.blob_status(blob_key).await?;
+    pub async fn get_inclusion_data(&mut self, blob_key: &BlobKey) -> Result<Option<EigenDACert>, EigenClientError> {
+        let status = self.disperser_client.blob_status(blob_key).await.map_err( |e| EigenClientError::PayloadDisperser(PayloadDisperserError::Disperser(e)))?;
 
-        let blob_status = BlobStatus::try_from(status.status)?;
+        let blob_status = BlobStatus::try_from(status.status).map_err(|e| EigenClientError::PayloadDisperser(PayloadDisperserError::Decode(e)))?;
         match blob_status {
             BlobStatus::Unknown | BlobStatus::Failed => {
-                Err(PayloadDisperserError::BlobStatus)
+                Err(PayloadDisperserError::BlobStatus)?
             }
             BlobStatus::Encoded | BlobStatus::GatheringSignatures | BlobStatus::Queued => {
                 Ok(None)
@@ -68,7 +68,7 @@ impl PayloadDisperser {
             Some(batch) => batch,
             None => return Err(EigenClientError::PayloadDisperser(PayloadDisperserError::Conversion(ConversionError::SignedBatch("Not Present".to_string())))),
         };
-        let non_signer_stakes_and_signature = self.cert_verifier.get_non_signer_stakes_and_signature(signed_batch).await;
+        let non_signer_stakes_and_signature = self.cert_verifier.get_non_signer_stakes_and_signature(signed_batch).await.map_err(|e| EigenClientError::PayloadDisperser(PayloadDisperserError::CertVerifier(e)))?;
 
         let cert = EigenDACert::new(status, non_signer_stakes_and_signature)?;
 

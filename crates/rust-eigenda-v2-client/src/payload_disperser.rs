@@ -1,31 +1,37 @@
-use crate::{cert_verifier::CertVerifier, core::{eigenda_cert::{BlobCertificate, EigenDACert}, BlobKey, Payload, PayloadForm}, disperser_client::{DisperserClient, DisperserClientConfig}, generated::disperser::v2::{BlobStatus, BlobStatusReply}};
+use crate::{cert_verifier::{self, CertVerifier}, core::{eigenda_cert::{BlobCertificate, EigenDACert}, BlobKey, Payload, PayloadForm}, disperser_client::{DisperserClient, DisperserClientConfig}, generated::disperser::v2::{BlobStatus, BlobStatusReply}};
 
+#[derive(Clone)]
 pub(crate) struct PayloadDisperserConfig {
     polynomial_form: PayloadForm,
     blob_version: u16,
+    cert_verifier_address: String,
+    eth_rpc_url: String,
 }
 
 pub(crate) struct PayloadDisperser {
     config: PayloadDisperserConfig,
     disperser_client: DisperserClient,
     cert_verifier: CertVerifier,
+    required_quorums: Vec<u8>,
 }
 
 impl PayloadDisperser {
     pub async fn new(disperser_config: DisperserClientConfig, payload_config: PayloadDisperserConfig) -> Result<Self,String> {
         let disperser_client = DisperserClient::new(disperser_config).await.unwrap();
+        let cert_verifier = CertVerifier::new(payload_config.cert_verifier_address.clone(), payload_config.eth_rpc_url.clone());
+        let required_quorums = cert_verifier.quorum_numbers_required().await;
         Ok(PayloadDisperser {
             disperser_client,
-            config: payload_config
+            config: payload_config,
+            cert_verifier,
+            required_quorums
         })
     }
     //todo error handling
-    pub async fn send_payload(&self, payload: Payload) -> Result<BlobKey, String> {
+    pub async fn send_payload(&mut self, payload: Payload) -> Result<BlobKey, String> {
         let blob = payload.to_blob(self.config.polynomial_form).unwrap();
 
-        // required_quorums = certVerifier.GetQuorumNumbersRequired
-
-        let (blob_status, blob_key) = self.disperser_client.disperse_blob(&blob.serialize(), self.config.blob_version, required_quorums).await.unwrap();
+        let (blob_status, blob_key) = self.disperser_client.disperse_blob(&blob.serialize(), self.config.blob_version, &self.required_quorums).await.unwrap();
 
         match blob_status {
             BlobStatus::Unknown | BlobStatus::Failed => {
@@ -50,17 +56,74 @@ impl PayloadDisperser {
                 Ok(None)
             }
             BlobStatus::Complete => {
-                let eigenda_cert = self.build_eigenda_cert(blob_key, status).await.unwrap();
+                let eigenda_cert = self.build_eigenda_cert(status).await.unwrap();
                 //todo verify_cert_v2
                 Ok(Some(eigenda_cert))
             }
         }
     }
 
-    pub async fn build_eigenda_cert(&self, blob_key: &BlobKey, status: BlobStatusReply) -> Result<EigenDACert, String> {
-        let non_signer_stakes_and_signature = self.cert_verifier.get_non_signer_stakes_and_signature(&status.signed_batch).await.unwrap();
+    pub async fn build_eigenda_cert(&self, status: BlobStatusReply) -> Result<EigenDACert, String> {
+        let non_signer_stakes_and_signature = self.cert_verifier.get_non_signer_stakes_and_signature(status.clone().signed_batch.unwrap()).await;
 
-        EigenDACert::new(status, non_signer_stakes_and_signature)
+        let cert = EigenDACert::new(status, non_signer_stakes_and_signature).unwrap();
 
+        Ok(cert)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{core::{Payload, PayloadForm}, disperser_client::DisperserClientConfig, payload_disperser::{PayloadDisperser, PayloadDisperserConfig}};
+
+    use dotenv::dotenv;
+    use std::env;
+
+    #[tokio::test]
+    async fn test_disperse_payload() {
+        dotenv().ok();
+
+        let timeout = tokio::time::Duration::from_secs(180);
+
+        // Set your private key in .env file
+        let private_key: String =
+            env::var("SIGNER_PRIVATE_KEY").expect("SIGNER_PRIVATE_KEY must be set");
+
+        let disperser_config = DisperserClientConfig {
+            disperser_rpc: "https://disperser-preprod-holesky.eigenda.xyz".to_string(),
+            private_key,
+            use_secure_grpc_flag: false
+        };
+
+        let payload_config = PayloadDisperserConfig {
+            polynomial_form: PayloadForm::Coeff,
+            blob_version: 0,
+            cert_verifier_address: "0xFe52fE1940858DCb6e12153E2104aD0fDFbE1162".to_string(),
+            eth_rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
+        };
+
+        let mut payload_disperser = PayloadDisperser::new(disperser_config, payload_config).await.unwrap();
+
+        let payload = Payload::new(vec![1, 2, 3, 4, 5]);
+        let blob_key = payload_disperser.send_payload(payload).await.unwrap();
+        
+        let mut finished= false;
+        let start_time = tokio::time::Instant::now();
+        while !finished {
+            let inclusion_data = payload_disperser.get_inclusion_data(&blob_key).await.unwrap();
+            match inclusion_data {
+                Some(cert) => {
+                    println!("Inclusion data: {:?}", cert);
+                    finished = true;
+                }
+                None => {
+                    let elapsed = start_time.elapsed();
+                    if elapsed >= timeout {
+                        assert!(false, "Timeout waiting for inclusion data");
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
     }
 }

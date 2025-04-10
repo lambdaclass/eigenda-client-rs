@@ -37,6 +37,11 @@ impl CertVerifier {
         self.non_signer_stakes_and_signature_contract_to_core(non_signer_stakes_and_signature)
     }
 
+    pub async fn quorum_numbers_required(&self) -> Vec<u8> {
+        let quorums = self.cert_verifier_contract.quorumNumbersRequired().call().await.unwrap();
+        quorums.iter().map(|q| *q as u8).collect()
+    }
+
     fn signed_batch_proto_to_contract(&self, signed_batch: SignedBatch) -> ContractSignedBatch {
         let batch_header = self.batch_header_proto_to_contract(signed_batch.header.unwrap());
         let attestation = self.attestation_proto_to_contract(signed_batch.attestation.unwrap());

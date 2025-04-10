@@ -22,9 +22,9 @@ const BYTES_PER_SYMBOL: usize = 32;
 
 #[derive(Debug)]
 pub struct DisperserClientConfig {
-    disperser_rpc: String,
-    private_key: String,
-    use_secure_grpc_flag: bool,
+    pub disperser_rpc: String,
+    pub private_key: String,
+    pub use_secure_grpc_flag: bool,
 }
 
 impl DisperserClientConfig {

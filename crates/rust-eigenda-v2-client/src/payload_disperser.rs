@@ -1,4 +1,4 @@
-use crate::{cert_verifier::{self, CertVerifier}, core::{eigenda_cert::{BlobCertificate, EigenDACert}, BlobKey, Payload, PayloadForm}, disperser_client::{DisperserClient, DisperserClientConfig}, generated::disperser::v2::{BlobStatus, BlobStatusReply}};
+use crate::{cert_verifier::{self, CertVerifier}, core::{eigenda_cert::{BlobCertificate, EigenDACert}, BlobKey, Payload, PayloadForm}, disperser_client::{DisperserClient, DisperserClientConfig}, errors::{ConversionError, EigenClientError, PayloadDisperserError}, generated::disperser::v2::{BlobStatus, BlobStatusReply}};
 
 #[derive(Clone)]
 pub(crate) struct PayloadDisperserConfig {
@@ -16,8 +16,8 @@ pub(crate) struct PayloadDisperser {
 }
 
 impl PayloadDisperser {
-    pub async fn new(disperser_config: DisperserClientConfig, payload_config: PayloadDisperserConfig) -> Result<Self,String> {
-        let disperser_client = DisperserClient::new(disperser_config).await.unwrap();
+    pub async fn new(disperser_config: DisperserClientConfig, payload_config: PayloadDisperserConfig) -> Result<Self,PayloadDisperserError> {
+        let disperser_client = DisperserClient::new(disperser_config).await?;
         let cert_verifier = CertVerifier::new(payload_config.cert_verifier_address.clone(), payload_config.eth_rpc_url.clone());
         let required_quorums = cert_verifier.quorum_numbers_required().await;
         Ok(PayloadDisperser {
@@ -28,14 +28,14 @@ impl PayloadDisperser {
         })
     }
     //todo error handling
-    pub async fn send_payload(&mut self, payload: Payload) -> Result<BlobKey, String> {
-        let blob = payload.to_blob(self.config.polynomial_form).unwrap();
+    pub async fn send_payload(&mut self, payload: Payload) -> Result<BlobKey, PayloadDisperserError> {
+        let blob = payload.to_blob(self.config.polynomial_form)?;
 
-        let (blob_status, blob_key) = self.disperser_client.disperse_blob(&blob.serialize(), self.config.blob_version, &self.required_quorums).await.unwrap();
+        let (blob_status, blob_key) = self.disperser_client.disperse_blob(&blob.serialize(), self.config.blob_version, &self.required_quorums).await?;
 
         match blob_status {
             BlobStatus::Unknown | BlobStatus::Failed => {
-                return Err("Blob status is unknown or failed".to_string());
+                return Err(PayloadDisperserError::BlobStatus);
             }
             BlobStatus::Complete | BlobStatus::Encoded | BlobStatus::GatheringSignatures | BlobStatus::Queued => {
                 
@@ -44,29 +44,33 @@ impl PayloadDisperser {
         Ok(blob_key)
     }
 
-    pub async fn get_inclusion_data(&mut self, blob_key: &BlobKey) -> Result<Option<EigenDACert>, String> {
-        let status = self.disperser_client.blob_status(blob_key).await.unwrap();
+    pub async fn get_inclusion_data(&mut self, blob_key: &BlobKey) -> Result<Option<EigenDACert>, PayloadDisperserError> {
+        let status = self.disperser_client.blob_status(blob_key).await?;
 
-        let blob_status = BlobStatus::try_from(status.status).unwrap();
+        let blob_status = BlobStatus::try_from(status.status)?;
         match blob_status {
             BlobStatus::Unknown | BlobStatus::Failed => {
-                Err("Blob status is unknown or failed".to_string())
+                Err(PayloadDisperserError::BlobStatus)
             }
             BlobStatus::Encoded | BlobStatus::GatheringSignatures | BlobStatus::Queued => {
                 Ok(None)
             }
             BlobStatus::Complete => {
-                let eigenda_cert = self.build_eigenda_cert(status).await.unwrap();
+                let eigenda_cert = self.build_eigenda_cert(status).await?;
                 //todo verify_cert_v2
                 Ok(Some(eigenda_cert))
             }
         }
     }
 
-    pub async fn build_eigenda_cert(&self, status: BlobStatusReply) -> Result<EigenDACert, String> {
-        let non_signer_stakes_and_signature = self.cert_verifier.get_non_signer_stakes_and_signature(status.clone().signed_batch.unwrap()).await;
+    pub async fn build_eigenda_cert(&self, status: BlobStatusReply) -> Result<EigenDACert, EigenClientError> {
+        let signed_batch = match status.clone().signed_batch {
+            Some(batch) => batch,
+            None => return Err(EigenClientError::PayloadDisperser(PayloadDisperserError::Conversion(ConversionError::SignedBatch("Not Present".to_string())))),
+        };
+        let non_signer_stakes_and_signature = self.cert_verifier.get_non_signer_stakes_and_signature(signed_batch).await;
 
-        let cert = EigenDACert::new(status, non_signer_stakes_and_signature).unwrap();
+        let cert = EigenDACert::new(status, non_signer_stakes_and_signature)?;
 
         Ok(cert)
     }
@@ -90,7 +94,7 @@ mod tests {
             env::var("SIGNER_PRIVATE_KEY").expect("SIGNER_PRIVATE_KEY must be set");
 
         let disperser_config = DisperserClientConfig {
-            disperser_rpc: "https://disperser-preprod-holesky.eigenda.xyz".to_string(),
+            disperser_rpc: "https://disperser-testnet-holesky.eigenda.xyz".to_string(),
             private_key,
             use_secure_grpc_flag: false
         };

@@ -32,7 +32,7 @@ impl CertVerifier {
     }
     pub async fn get_non_signer_stakes_and_signature(&self, signed_batch: SignedBatch) -> NonSignerStakesAndSignature{
         let contract_signed_batch = self.signed_batch_proto_to_contract(signed_batch);
-        let non_signer_stakes_and_signature = self.cert_verifier_contract.getNonSignerStakesAndSignature(contract_signed_batch).call().await.unwrap();
+        let non_signer_stakes_and_signature = self.cert_verifier_contract.getNonSignerStakesAndSignature(contract_signed_batch).call().await?;
 
         self.non_signer_stakes_and_signature_contract_to_core(non_signer_stakes_and_signature)
     }

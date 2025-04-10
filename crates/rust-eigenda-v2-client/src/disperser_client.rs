@@ -246,7 +246,7 @@ mod tests {
             env::var("SIGNER_PRIVATE_KEY").expect("SIGNER_PRIVATE_KEY must be set");
 
         let config = DisperserClientConfig {
-            disperser_rpc: "https://disperser-preprod-holesky.eigenda.xyz".to_string(),
+            disperser_rpc: "https://disperser-testnet-holesky.eigenda.xyz".to_string(),
             private_key,
             use_secure_grpc_flag: false,
         };

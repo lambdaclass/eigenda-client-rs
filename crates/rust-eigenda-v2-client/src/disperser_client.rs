@@ -121,7 +121,6 @@ impl DisperserClient {
         }
         let account_id: String = payment.account_id.encode_hex();
 
-        //todo?: remove alloy and implement to checksum manually
         let account_id: String = alloy_primitives::Address::from_str(&account_id)
             .map_err(|_| DisperseError::AccountID)?
             .to_checksum(None);

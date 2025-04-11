@@ -2,22 +2,20 @@ use std::str::FromStr;
 
 use alloy::{network::Ethereum, providers::RootProvider};
 use alloy_primitives::Uint;
-use ark_bn254::{Fq, G1Affine, G2Affine};
+use ark_bn254::{g2, Fq, G1Affine, G2Affine};
 use ark_ff::{BigInteger, Fp2, PrimeField};
 
 use crate::{
     contracts_bindings::{
         IEigenDACertVerifier::{
-            self, Attestation as AttestationContract, BatchHeaderV2,
-            NonSignerStakesAndSignature as NonSignerStakesAndSignatureContract,
-            SignedBatch as ContractSignedBatch,
+            self, Attestation as AttestationContract, BatchHeaderV2 as BatchHeaderV2Contract, BlobCertificate, BlobCommitment, BlobHeaderV2, BlobInclusionInfo, NonSignerStakesAndSignature as NonSignerStakesAndSignatureContract, SignedBatch as ContractSignedBatch
         },
         BN254::{G1Point, G2Point},
     },
-    core::eigenda_cert::NonSignerStakesAndSignature,
+    core::eigenda_cert::{self, BatchHeaderV2 as BatchHeaderV2Core, EigenDACert, NonSignerStakesAndSignature},
     errors::{CertVerifierError, ConversionError},
     generated::{
-        common::v2::BatchHeader,
+        common::v2::BatchHeader as BatchHeaderProto,
         disperser::v2::{Attestation, SignedBatch},
     },
     utils::{g1_commitment_from_bytes, g2_commitment_from_bytes},
@@ -66,6 +64,56 @@ impl CertVerifier {
         Ok(quorums.to_vec())
     }
 
+    pub async fn verify_cert_v2(&self, eigenda_cert: &EigenDACert) -> Result<(), CertVerifierError> {
+        let batch_header = self.batch_header_core_to_contract(&eigenda_cert.batch_header);
+        let blob_inclusion_info = self.blob_inclusion_info_core_to_contract(&eigenda_cert.blob_inclusion_info);
+        let non_signer_stakes_and_signature = self.non_signer_stakes_and_signature_core_to_contract(&eigenda_cert.non_signer_stakes_and_signature);
+        let signed_quorum_numbers = eigenda_cert.signed_quorum_numbers.clone();
+        self.cert_verifier_contract.verifyDACertV2(batch_header, blob_inclusion_info, non_signer_stakes_and_signature, signed_quorum_numbers.into()).call().await?;
+        Ok(())
+    }
+
+    fn batch_header_core_to_contract(&self, batch_header: &BatchHeaderV2Core) -> BatchHeaderV2Contract {
+        BatchHeaderV2Contract {
+            batchRoot: alloy_primitives::FixedBytes(batch_header.batch_root),
+            referenceBlockNumber: batch_header.reference_block_number,
+        }
+    }
+
+    fn blob_inclusion_info_core_to_contract(&self, blob_inclusion_info: &eigenda_cert::BlobInclusionInfo) -> BlobInclusionInfo {
+        BlobInclusionInfo { 
+            blobCertificate: self.blob_certificate_core_to_contract(&blob_inclusion_info.blob_certificate),
+            blobIndex: blob_inclusion_info.blob_index, 
+            inclusionProof: blob_inclusion_info.inclusion_proof.clone().into()
+        }
+    }
+
+    fn blob_certificate_core_to_contract(&self, blob_certificate: &eigenda_cert::BlobCertificate) -> BlobCertificate {
+        BlobCertificate {
+            blobHeader: self.blob_header_core_to_contract(&blob_certificate.blob_header),
+            signature: blob_certificate.signature.clone().into(),
+            relayKeys: blob_certificate.relay_keys.clone()
+        }
+    }
+
+    fn blob_header_core_to_contract(&self, blob_header: &eigenda_cert::BlobHeader) -> BlobHeaderV2 {
+        BlobHeaderV2 {
+            version: blob_header.version,
+            quorumNumbers: blob_header.quorum_numbers.clone().into(),
+            commitment: self.blob_commitment_core_to_contract(&blob_header.commitment),
+            paymentHeaderHash: blob_header.payment_header_hash.clone().into(),
+        }
+    }
+
+    fn blob_commitment_core_to_contract(&self, blob_commitment: &eigenda_cert::BlobCommitment) -> BlobCommitment {
+        BlobCommitment {
+            lengthCommitment: self.g2_point_from_g2_affine(&blob_commitment.length_commitment),
+            lengthProof: self.g2_point_from_g2_affine(&blob_commitment.length_proof),
+            length: blob_commitment.length,
+            commitment: self.g1_point_from_g1_affine(&blob_commitment.commitment),
+        }
+    }
+
     fn signed_batch_proto_to_contract(
         &self,
         signed_batch: SignedBatch,
@@ -96,9 +144,9 @@ impl CertVerifier {
 
     fn batch_header_proto_to_contract(
         &self,
-        batch_header: BatchHeader,
-    ) -> Result<BatchHeaderV2, CertVerifierError> {
-        Ok(BatchHeaderV2 {
+        batch_header: BatchHeaderProto,
+    ) -> Result<BatchHeaderV2Contract, CertVerifierError> {
+        Ok(BatchHeaderV2Contract {
             batchRoot: alloy_primitives::FixedBytes(
                 batch_header.batch_root.try_into().map_err(|_| {
                     ConversionError::BatchHeader("Incorrect batch root".to_string())
@@ -151,6 +199,30 @@ impl CertVerifier {
             quorum_apk_indices: non_signer_stakes_and_signature.quorumApkIndices,
             total_stake_indices: non_signer_stakes_and_signature.totalStakeIndices,
             non_signer_stake_indices: non_signer_stakes_and_signature.nonSignerStakeIndices,
+        }
+    }
+
+    fn non_signer_stakes_and_signature_core_to_contract(&self, 
+        non_signer_stakes_and_signature: &NonSignerStakesAndSignature,
+    ) -> NonSignerStakesAndSignatureContract {
+        NonSignerStakesAndSignatureContract {
+            nonSignerQuorumBitmapIndices: non_signer_stakes_and_signature
+                .non_signer_quorum_bitmap_indices.clone(),
+            nonSignerPubkeys: non_signer_stakes_and_signature
+                .non_signer_pubkeys
+                .iter()
+                .map(|p| self.g1_point_from_g1_affine(p))
+                .collect(),
+            quorumApks: non_signer_stakes_and_signature
+                .quorum_apks
+                .iter()
+                .map(|p| self.g1_point_from_g1_affine(p))
+                .collect(),
+            apkG2: self.g2_point_from_g2_affine(&non_signer_stakes_and_signature.apk_g2),
+            sigma: self.g1_point_from_g1_affine(&non_signer_stakes_and_signature.sigma),
+            quorumApkIndices: non_signer_stakes_and_signature.quorum_apk_indices.clone(),
+            totalStakeIndices: non_signer_stakes_and_signature.total_stake_indices.clone(),
+            nonSignerStakeIndices: non_signer_stakes_and_signature.non_signer_stake_indices.clone(),
         }
     }
 
@@ -239,4 +311,28 @@ impl CertVerifier {
         );
         G2Affine::new(x, y)
     }
+
+    fn g2_point_from_g2_affine(&self, g2_affine: &G2Affine) -> G2Point {
+        let x = g2_affine.x;
+        let y = g2_affine.y;
+        G2Point {
+            X: [
+                Uint::from_be_bytes::<32>(x.c0.into_bigint().to_bytes_be().try_into().unwrap()),
+                Uint::from_be_bytes::<32>(x.c1.into_bigint().to_bytes_be().try_into().unwrap()),
+            ],
+            Y: [
+                Uint::from_be_bytes::<32>(y.c0.into_bigint().to_bytes_be().try_into().unwrap()),
+                Uint::from_be_bytes::<32>(y.c1.into_bigint().to_bytes_be().try_into().unwrap()),
+            ],
+        }
+    }
+
+    fn g1_point_from_g1_affine(&self, g1_affine: &G1Affine) -> G1Point {
+        let x = g1_affine.x;
+        let y = g1_affine.y;
+        G1Point {
+            X: Uint::from_be_bytes::<32>(x.into_bigint().to_bytes_be().try_into().unwrap()),
+            Y: Uint::from_be_bytes::<32>(y.into_bigint().to_bytes_be().try_into().unwrap()),
+        }
+    }   
 }

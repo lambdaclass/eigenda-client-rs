@@ -143,9 +143,9 @@ impl TryFrom<ProtoBlobHeader> for BlobHeader {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobCertificate {
-    blob_header: BlobHeader,
-    signature: Vec<u8>,
-    relay_keys: Vec<u32>,
+    pub(crate) blob_header: BlobHeader,
+    pub(crate) signature: Vec<u8>,
+    pub(crate) relay_keys: Vec<u32>,
 }
 
 impl TryFrom<ProtoBlobCertificate> for BlobCertificate {
@@ -164,9 +164,9 @@ impl TryFrom<ProtoBlobCertificate> for BlobCertificate {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BlobInclusionInfo {
-    blob_certificate: BlobCertificate,
-    blob_index: u32,
-    inclusion_proof: Vec<u8>,
+    pub(crate) blob_certificate: BlobCertificate,
+    pub(crate) blob_index: u32,
+    pub(crate) inclusion_proof: Vec<u8>,
 }
 
 impl TryFrom<ProtoBlobInclusionInfo> for BlobInclusionInfo {
@@ -190,8 +190,8 @@ pub(crate) struct SignedBatch {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BatchHeaderV2 {
-    batch_root: [u8; 32],
-    reference_block_number: u32,
+    pub(crate) batch_root: [u8; 32],
+    pub(crate) reference_block_number: u32,
 }
 
 impl TryFrom<ProtoBatchHeader> for BatchHeaderV2 {
@@ -237,10 +237,10 @@ pub struct NonSignerStakesAndSignature {
 // This struct represents the composition of a eigenDA blob certificate, as it would exist in a rollup inbox.
 #[derive(Debug, PartialEq, Clone)]
 pub struct EigenDACert {
-    blob_inclusion_info: BlobInclusionInfo,
-    batch_header: BatchHeaderV2,
-    non_signer_stakes_and_signature: NonSignerStakesAndSignature,
-    signed_quorum_numbers: Vec<u8>,
+    pub blob_inclusion_info: BlobInclusionInfo,
+    pub batch_header: BatchHeaderV2,
+    pub non_signer_stakes_and_signature: NonSignerStakesAndSignature,
+    pub signed_quorum_numbers: Vec<u8>,
 }
 
 impl EigenDACert {

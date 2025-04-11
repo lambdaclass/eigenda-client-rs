@@ -39,7 +39,7 @@ impl PayloadDisperser {
             required_quorums,
         })
     }
-    //todo error handling
+
     pub async fn send_payload(
         &mut self,
         payload: Payload,
@@ -84,7 +84,7 @@ impl PayloadDisperser {
             BlobStatus::Encoded | BlobStatus::GatheringSignatures | BlobStatus::Queued => Ok(None),
             BlobStatus::Complete => {
                 let eigenda_cert = self.build_eigenda_cert(status).await?;
-                //todo verify_cert_v2
+                self.cert_verifier.verify_cert_v2(&eigenda_cert).await.map_err(|e| EigenClientError::PayloadDisperser(PayloadDisperserError::CertVerifier(e)))?;
                 Ok(Some(eigenda_cert))
             }
         }

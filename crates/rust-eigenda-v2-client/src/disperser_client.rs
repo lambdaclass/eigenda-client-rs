@@ -238,6 +238,7 @@ mod tests {
     use serial_test::serial;
     use std::env;
 
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_disperse_non_secure() {
@@ -260,10 +261,9 @@ mod tests {
             .disperse_blob(&data, blob_version, &quorums)
             .await
             .unwrap();
-        println!("Disperse result: {:?}", result.0);
-        println!("Blob key: {}", hex::encode(result.1.to_bytes()));
     }
 
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_disperse_secure() {
@@ -286,10 +286,9 @@ mod tests {
             .disperse_blob(&data, blob_version, &quorums)
             .await
             .unwrap();
-        println!("Disperse result: {:?}", result.0);
-        println!("Blob key: {}", hex::encode(result.1.to_bytes()));
     }
 
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_double_disperse_secure() {
@@ -312,13 +311,9 @@ mod tests {
             .disperse_blob(&data, blob_version, &quorums)
             .await
             .unwrap();
-        println!("Disperse result: {:?}", result.0);
-        println!("Blob key: {}", hex::encode(result.1.to_bytes()));
         let result = client
             .disperse_blob(&data, blob_version, &quorums)
             .await
             .unwrap();
-        println!("Disperse result: {:?}", result.0);
-        println!("Blob key: {}", hex::encode(result.1.to_bytes()));
     }
 }

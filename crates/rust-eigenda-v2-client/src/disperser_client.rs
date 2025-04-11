@@ -235,9 +235,11 @@ mod tests {
     use super::DisperserClientConfig;
 
     use dotenv::dotenv;
+    use serial_test::serial;
     use std::env;
 
     #[tokio::test]
+    #[serial]
     async fn test_disperse_non_secure() {
         dotenv().ok();
 
@@ -263,6 +265,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_disperse_secure() {
         dotenv().ok();
 
@@ -288,6 +291,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_double_disperse_secure() {
         dotenv().ok();
 

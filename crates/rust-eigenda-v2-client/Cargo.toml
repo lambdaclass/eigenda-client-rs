@@ -50,3 +50,4 @@ alloy-primitives = { workspace = true }
 
 [dev-dependencies]
 dotenv = { workspace = true }
+serial_test = { workspace = true }

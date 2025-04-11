@@ -258,8 +258,8 @@ mod tests {
         let quorums = vec![0, 1];
         let result = client
             .disperse_blob(&data, blob_version, &quorums)
-            .await
-            .unwrap();
+            .await;
+        assert!(result.is_ok());
     }
 
     #[ignore = "depends on external RPC"]
@@ -283,8 +283,8 @@ mod tests {
         let quorums = vec![0, 1];
         let result = client
             .disperse_blob(&data, blob_version, &quorums)
-            .await
-            .unwrap();
+            .await;
+        assert!(result.is_ok());
     }
 
     #[ignore = "depends on external RPC"]
@@ -308,11 +308,11 @@ mod tests {
         let quorums = vec![0, 1];
         let result = client
             .disperse_blob(&data, blob_version, &quorums)
-            .await
-            .unwrap();
+            .await;
+        assert!(result.is_ok());
         let result = client
             .disperse_blob(&data, blob_version, &quorums)
-            .await
-            .unwrap();
+            .await;
+        assert!(result.is_ok());
     }
 }

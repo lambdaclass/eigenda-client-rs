@@ -1,19 +1,15 @@
 use dotenv::dotenv;
 use ethereum_types::H160;
-use std::{env, str::FromStr, sync::Arc, time::Duration};
-use tokio::sync::Mutex;
-use url::Url;
+use std::{env, time::Duration};
 
 use crate::{
     core::{eigenda_cert::EigenDACert, BlobKey, Payload, PayloadForm},
     disperser_client::DisperserClientConfig,
-    eth_client::EthClient,
     payload_disperser::{PayloadDisperser, PayloadDisperserConfig},
     payloadretrieval::relay_payload_retriever::{
         RelayPayloadRetriever, RelayPayloadRetrieverConfig, SRSConfig,
     },
     relay_client::RelayClient,
-    utils::SecretUrl,
 };
 
 const TEST_BLOB_FINALIZATION_TIMEOUT: u64 = 180;
@@ -71,14 +67,12 @@ pub fn get_relay_client_test_config() -> crate::relay_client::RelayClientConfig 
         max_grpc_message_size: 9999999,
         relay_clients_keys: vec![1, 2],
         relay_registry_address: HOLESKY_RELAY_REGISTRY_ADDRESS,
+        eth_rpc_url: HOLESKY_ETH_RPC_URL.to_string(),
     }
 }
 
 pub async fn get_test_relay_client() -> RelayClient {
-    let eth_client = EthClient::new(SecretUrl::new(Url::from_str(HOLESKY_ETH_RPC_URL).unwrap()));
-    let eth_client = Arc::new(Mutex::new(eth_client));
-
-    RelayClient::new(get_relay_client_test_config(), eth_client)
+    RelayClient::new(get_relay_client_test_config())
         .await
         .unwrap()
 }

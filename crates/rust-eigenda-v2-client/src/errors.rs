@@ -109,6 +109,8 @@ pub enum RelayClientError {
     InvalidURI(String),
     #[error(transparent)]
     EthClient(#[from] EthClientError),
+    #[error(transparent)]
+    Alloy(#[from] alloy_contract::Error),
 }
 
 /// Errors for the EthClient
@@ -122,8 +124,6 @@ pub enum EthClientError {
     HexEncoding(#[from] hex::FromHexError),
     #[error(transparent)]
     EthAbi(#[from] ethabi::Error),
-    #[error("RPC: {0}")]
-    Rpc(crate::eth_client::RpcErrorResponse),
     #[error("Invalid response: {0}")]
     InvalidResponse(String),
 }

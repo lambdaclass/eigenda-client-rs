@@ -45,10 +45,7 @@ impl PayloadDisperser {
     }
 
     /// Executes the dispersal of a payload, returning the associated blob key
-    pub async fn send_payload(
-        &mut self,
-        payload: Payload,
-    ) -> Result<BlobKey, PayloadDisperserError> {
+    pub async fn send_payload(&self, payload: Payload) -> Result<BlobKey, PayloadDisperserError> {
         let blob = payload.to_blob(self.config.polynomial_form)?;
 
         let (blob_status, blob_key) = self
@@ -75,7 +72,7 @@ impl PayloadDisperser {
     /// Retrieves the inclusion data for a given blob key
     /// If the requested blob is still not complete, returns None
     pub async fn get_inclusion_data(
-        &mut self,
+        &self,
         blob_key: &BlobKey,
     ) -> Result<Option<EigenDACert>, EigenClientError> {
         let status = self
@@ -161,7 +158,7 @@ mod tests {
             eth_rpc_url: HOLESKY_ETH_RPC_URL.to_string(),
         };
 
-        let mut payload_disperser = PayloadDisperser::new(disperser_config, payload_config)
+        let payload_disperser = PayloadDisperser::new(disperser_config, payload_config)
             .await
             .unwrap();
 

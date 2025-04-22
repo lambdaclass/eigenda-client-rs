@@ -53,15 +53,15 @@ pub fn get_relay_payload_retriever_test_config() -> RelayPayloadRetrieverConfig 
 pub fn get_srs_test_config() -> SRSConfig {
     SRSConfig {
         source_path: "../../resources/g1.point".to_string(),
-        order: 42,
-        points_to_load: 42,
+        order: 9999999,
+        points_to_load: 9999999,
     }
 }
 
 pub fn get_relay_client_test_config() -> crate::relay_client::RelayClientConfig {
     crate::relay_client::RelayClientConfig {
         max_grpc_message_size: 9999999,
-        relay_clients_keys: vec![1, 2],
+        relay_clients_keys: vec![0, 1, 2],
         relay_registry_address: HOLESKY_RELAY_REGISTRY_ADDRESS,
         eth_rpc_url: get_test_holesky_rpc_url(),
     }

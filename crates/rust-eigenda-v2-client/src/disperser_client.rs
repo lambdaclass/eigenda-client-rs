@@ -60,7 +60,7 @@ impl DisperserClientConfig {
 /// DisperserClient is a client for the entire disperser subsystem.
 ///
 /// This struct is a low level implementation and should not be used directly,
-/// use a high level abstraction to interact with it ([`PayloadDisperser`]).
+/// use a higher level client to interact with it (like [`PayloadDisperser`]).
 #[derive(Debug, Clone)]
 pub struct DisperserClient {
     signer: LocalBlobRequestSigner,
@@ -68,8 +68,8 @@ pub struct DisperserClient {
     accountant: Arc<Mutex<Accountant>>,
 }
 
-// todo: add locks
 impl DisperserClient {
+    /// Creates a new disperser client from a configuration.
     pub async fn new(config: DisperserClientConfig) -> Result<Self, DisperseError> {
         let mut endpoint = Channel::from_shared(config.disperser_rpc.clone())
             .map_err(|_| DisperseError::InvalidURI(config.disperser_rpc.clone()))?;
@@ -98,6 +98,7 @@ impl DisperserClient {
         Ok(disperser)
     }
 
+    /// Disperse a sequence of bytes to the disperser.
     pub async fn disperse_blob(
         &self,
         data: &[u8],
@@ -245,7 +246,6 @@ impl DisperserClient {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
         disperser_client::DisperserClient,
         tests::{get_test_private_key, HOLESKY_DISPERSER_RPC_URL},

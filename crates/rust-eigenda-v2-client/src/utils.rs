@@ -6,7 +6,6 @@ use crate::{
 };
 use ark_bn254::Fr;
 use ark_ff::fields::PrimeField;
-use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use secrecy::{ExposeSecret, Secret};
 use url::Url;
 
@@ -59,19 +58,6 @@ impl FromStr for PrivateKey {
             s.parse().map_err(|_| ConversionError::PrivateKey)?,
         ))
     }
-}
-
-/// coeff_to_eval_poly converts a polynomial in coefficient form to one in evaluation form, using the FFT operation.
-pub(crate) fn coeff_to_eval_poly(
-    coeff_poly: Vec<Fr>,
-    blob_length_symbols: usize,
-) -> Result<Vec<Fr>, ConversionError> {
-    let evals = GeneralEvaluationDomain::<Fr>::new(blob_length_symbols)
-        .ok_or(ConversionError::Poly(
-            "Failed to construct domain for FFT".to_string(),
-        ))?
-        .fft(&coeff_poly);
-    Ok(evals)
 }
 
 pub(crate) fn pad_to_bytes_per_symbol(input_bytes: &[u8]) -> Vec<u8> {

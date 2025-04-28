@@ -1,4 +1,4 @@
-mod commitment_utils;
+mod utils;
 mod core;
 mod eigenda_cert;
 mod errors;

@@ -1,8 +1,8 @@
 use ark_bn254::Fr;
 
-use crate::BlobError;
-
-use super::BYTES_PER_SYMBOL;
+use crate::core::{EncodedPayload, Payload, PayloadForm, BYTES_PER_SYMBOL};
+use crate::errors::BlobError;
+use crate::utils::coeff_to_eval_poly;
 
 /// [`Blob`] is data that is dispersed on EigenDA.
 ///
@@ -61,8 +61,19 @@ impl Blob {
         Ok(chunck_count * bytes_per_chunk)
     }
 
+    /// Converts the [`Blob`] into a [`Payload`].
+    ///
+    /// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
+    /// conversion, if any, must be performed when creating a payload from the blob.
+    pub fn to_payload(&self, payload_form: PayloadForm) -> Result<Payload, BlobError> {
+        let encoded_payload = self.to_encoded_payload(payload_form)?;
+        let payload = encoded_payload
+            .decode()?;
+        Ok(payload)
+    }
+
     /// Gets the size in bytes of the largest payload that could fit inside the blob.
-    pub fn get_max_permissible_payloadlength(
+    fn get_max_permissible_payloadlength(
         &self,
         blob_length_symbols: usize,
     ) -> Result<usize, BlobError> {
@@ -76,5 +87,66 @@ impl Blob {
         }
 
         self.get_unpadded_data_length(blob_length_symbols * BYTES_PER_SYMBOL - 32)
+    }
+
+    /// Creates an [`EncodedPayload`] from the blob.
+    ///
+    /// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
+    /// conversion, if any, must be performed when creating an encoded payload from the blob.
+    pub fn to_encoded_payload(
+        &self,
+        payload_form: PayloadForm,
+    ) -> Result<EncodedPayload, BlobError> {
+        let payload_elements = match payload_form {
+            PayloadForm::Coeff => self.coeff_polynomial.clone(),
+            PayloadForm::Eval => {
+                coeff_to_eval_poly(self.coeff_polynomial.clone(), self.blob_length_symbols)?
+            }
+        };
+
+        let max_possible_payload_length =
+            self.get_max_permissible_payloadlength(self.blob_length_symbols)?;
+        Ok(EncodedPayload::from_field_elements(
+            &payload_elements,
+            max_possible_payload_length,
+        )?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use crate::core::{blob::Blob, payload::Payload, PayloadForm};
+
+    fn blob_conversion_for_form(payload_bytes: Vec<u8>, payload_form: PayloadForm) {
+        let blob: Blob = Payload::new(payload_bytes.clone())
+            .to_blob(payload_form)
+            .unwrap();
+        let blob_deserialized =
+            Blob::deserialize_blob(blob.serialize(), blob.blob_length_symbols).unwrap();
+
+        let payload_from_blob = blob.to_payload(payload_form).unwrap();
+
+        let payload_from_deserialized_blob = blob_deserialized.to_payload(payload_form).unwrap();
+
+        assert_eq!(
+            payload_from_blob.serialize(),
+            payload_from_deserialized_blob.serialize()
+        );
+        assert_eq!(payload_bytes, payload_from_blob.serialize());
+    }
+
+    fn test_blob_conversion(original_data: &[u8]) {
+        blob_conversion_for_form(original_data.to_vec(), PayloadForm::Coeff);
+        blob_conversion_for_form(original_data.to_vec(), PayloadForm::Eval);
+    }
+
+    proptest! {
+
+        #[test]
+        fn fuzz_blob_conversion(original_data in prop::collection::vec(any::<u8>(), 0..1000)) {
+            test_blob_conversion(&original_data);
+        }
     }
 }

@@ -4,12 +4,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use ethers::utils::to_checksum;
 use hex::ToHex;
+use rust_eigenda_v2_common::{BlobCommitments, BlobHeader};
 use secrecy::ExposeSecret;
 use tokio::sync::Mutex;
 use tonic::transport::{Channel, ClientTlsConfig};
 
 use crate::accountant::Accountant;
-use crate::core::eigenda_cert::{BlobCommitments, BlobHeader, PaymentHeader};
+use crate::core::eigenda_cert::PaymentHeader;
 use crate::core::{
     BlobKey, BlobRequestSigner, LocalBlobRequestSigner, OnDemandPayment, ReservedPayment,
 };
@@ -176,11 +177,14 @@ impl DisperserClient {
             .map(|response| response.into_inner())
             .map_err(DisperseError::FailedRPC)?;
 
-        if blob_header.blob_key()?.to_bytes().to_vec() != reply.blob_key {
+        if BlobKey::compute_blob_key(&blob_header)?.to_bytes().to_vec() != reply.blob_key {
             return Err(DisperseError::BlobKeyMismatch);
         }
 
-        Ok((BlobStatus::try_from(reply.result)?, blob_header.blob_key()?))
+        Ok((
+            BlobStatus::try_from(reply.result)?,
+            BlobKey::compute_blob_key(&blob_header)?,
+        ))
     }
 
     /// Populates the accountant with the payment state from the disperser.

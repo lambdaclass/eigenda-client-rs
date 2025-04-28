@@ -2,10 +2,20 @@ use ethers::prelude::*;
 use std::sync::Arc;
 
 use ethereum_types::H160;
+use rust_eigenda_v2_common::{EigenDACert, NonSignerStakesAndSignature};
 use secrecy::ExposeSecret;
 
 use crate::{
-    core::eigenda_cert::{EigenDACert, NonSignerStakesAndSignature, SignedBatch}, errors::{CertVerifierError, ConversionError}, generated::{disperser::v2::SignedBatch as SignedBatchProto, i_cert_verifier::{IEigenDACertVerifier, NonSignerStakesAndSignature as NonSignerStakesAndSignatureContract}}, utils::{PrivateKey, SecretUrl}
+    core::eigenda_cert::SignedBatch,
+    errors::{CertVerifierError, ConversionError},
+    generated::{
+        disperser::v2::SignedBatch as SignedBatchProto,
+        i_cert_verifier::{
+            IEigenDACertVerifier,
+            NonSignerStakesAndSignature as NonSignerStakesAndSignatureContract,
+        },
+    },
+    utils::{PrivateKey, SecretUrl},
 };
 
 #[derive(Debug, Clone)]
@@ -96,14 +106,14 @@ mod tests {
 
     use ark_bn254::{G1Affine, G2Affine};
     use ark_ff::{BigInt, Fp2};
+    use rust_eigenda_v2_common::{
+        BatchHeaderV2, BlobCertificate, BlobCommitments, BlobHeader, BlobInclusionInfo,
+        EigenDACert, NonSignerStakesAndSignature,
+    };
     use url::Url;
 
     use crate::{
         cert_verifier::CertVerifier,
-        core::eigenda_cert::{
-            BatchHeaderV2, BlobCertificate, BlobCommitments, BlobHeader, BlobInclusionInfo,
-            EigenDACert, NonSignerStakesAndSignature,
-        },
         tests::{get_test_private_key, CERT_VERIFIER_ADDRESS, HOLESKY_ETH_RPC_URL},
         utils::SecretUrl,
     };

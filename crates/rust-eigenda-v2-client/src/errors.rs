@@ -23,8 +23,6 @@ pub enum EigenClientError {
 pub enum ConversionError {
     #[error("Failed to parse payload: {0}")]
     Payload(String),
-    #[error("Failed to parse payment header: {0}")]
-    PaymentHeader(String),
     #[error("Failed to parse encoded payload: {0}")]
     EncodedPayload(String),
     #[error("Failed to convert polynomial: {0}")]
@@ -43,22 +41,39 @@ pub enum ConversionError {
     BatchHeader(String),
     #[error("Failed to parse blob key: {0}")]
     BlobKey(String),
-    #[error("Failed to convert U256: {0}")]
-    U256Conversion(String),
     #[error(transparent)]
     ArkSerializationError(#[from] ark_serialize::SerializationError),
     #[error("Failed to parse signed batch: {0}")]
     SignedBatch(String),
-    #[error("Failed to parse eigenda cert: {0}")]
-    EigenDACert(String),
     #[error("Private Key Error")]
     PrivateKey,
-    #[error("Invalid ETH rpc: {0}")]
-    InvalidEthRpc(String),
     #[error(transparent)]
     UrlParse(#[from] url::ParseError),
     #[error(transparent)]
     Wallet(#[from] WalletError),
+    #[error(transparent)]
+    EigenDACert(#[from] rust_eigenda_v2_common::ConversionError),
+    #[error("Failed to convert U256: {0}")]
+    U256Conversion(String),
+}
+
+/// Errors specific to the [`RelayPayloadRetriever`].
+#[derive(Debug, thiserror::Error)]
+pub enum RelayPayloadRetrieverError {
+    #[error(transparent)]
+    RelayClient(#[from] RelayClientError),
+    #[error(transparent)]
+    Blob(#[from] BlobError),
+    #[error(transparent)]
+    Conversion(#[from] ConversionError),
+    #[error(transparent)]
+    Kzg(#[from] KzgError),
+    #[error("Unable to retrieve payload")]
+    UnableToRetrievePayload,
+    #[error("Invalid certificate: {0}")]
+    InvalidCertificate(String),
+    #[error("Retrieval request to relay timed out")]
+    RetrievalTimeout,
 }
 
 /// Errors specific to the Blob type
@@ -82,23 +97,13 @@ pub enum BlobError {
     Bn254(#[from] Bn254Error),
 }
 
-/// Errors specific to the [`RelayPayloadRetriever`].
+/// Errors related to the BN254 and its points
 #[derive(Debug, thiserror::Error)]
-pub enum RelayPayloadRetrieverError {
-    #[error(transparent)]
-    RelayClient(#[from] RelayClientError),
-    #[error(transparent)]
-    Blob(#[from] BlobError),
-    #[error(transparent)]
-    Conversion(#[from] ConversionError),
-    #[error(transparent)]
-    Kzg(#[from] KzgError),
-    #[error("Unable to retrieve payload")]
-    UnableToRetrievePayload,
-    #[error("Invalid certificate: {0}")]
-    InvalidCertificate(String),
-    #[error("Retrieval request to relay timed out")]
-    RetrievalTimeout,
+pub enum Bn254Error {
+    #[error("Insufficient SRS in memory: have {0}, need {1}")]
+    InsufficientSrsInMemory(usize, usize),
+    #[error("Failed calculating multi scalar multiplication on base {:?} with scalars {:?}", .0, .1)]
+    FailedComputingMSM(Vec<G1Affine>, Vec<Fr>),
 }
 
 /// Errors specific to the [`RelayClient`].
@@ -139,15 +144,6 @@ pub enum EthClientError {
     EthAbi(#[from] ethabi::Error),
     #[error("Invalid response: {0}")]
     InvalidResponse(String),
-}
-
-/// Errors related to the BN254 and its points
-#[derive(Debug, thiserror::Error)]
-pub enum Bn254Error {
-    #[error("Insufficient SRS in memory: have {0}, need {1}")]
-    InsufficientSrsInMemory(usize, usize),
-    #[error("Failed calculating multi scalar multiplication on base {:?} with scalars {:?}", .0, .1)]
-    FailedComputingMSM(Vec<G1Affine>, Vec<Fr>),
 }
 
 /// Errors specific to the Accountant
@@ -202,6 +198,7 @@ pub enum SignerError {
     #[error(transparent)]
     Conversion(#[from] ConversionError),
 }
+
 /// Errors specific to the [`PayloadDisperser`].
 #[derive(Debug, thiserror::Error)]
 pub enum PayloadDisperserError {

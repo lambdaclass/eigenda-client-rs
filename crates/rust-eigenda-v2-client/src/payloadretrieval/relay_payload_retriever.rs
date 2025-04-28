@@ -177,12 +177,12 @@ impl RelayPayloadRetriever {
 #[cfg(test)]
 mod tests {
     use rust_eigenda_v2_common::{
-        BatchHeaderV2, BlobCertificate, BlobCommitments, BlobHeader, BlobInclusionInfo,
-        NonSignerStakesAndSignature,
+        g2_commitment_from_bytes, BatchHeaderV2, BlobCertificate, BlobCommitments, BlobHeader,
+        BlobInclusionInfo, NonSignerStakesAndSignature,
     };
 
     use crate::{
-        commitment_utils::{g1_commitment_from_bytes, g2_commitment_from_bytes},
+        commitment_utils::g1_commitment_from_bytes,
         tests::{
             get_relay_payload_retriever_test_config, get_srs_test_config, get_test_relay_client,
         },

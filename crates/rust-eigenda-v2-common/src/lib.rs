@@ -6,3 +6,4 @@ mod utils;
 pub use core::{Blob, EncodedPayload, Payload, PayloadForm};
 pub use eigenda_cert::*;
 pub use errors::*;
+pub use utils::*;

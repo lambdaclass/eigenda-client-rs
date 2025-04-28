@@ -27,8 +27,6 @@ pub enum ConversionError {
     Payload(String),
     #[error("Failed to parse encoded payload: {0}")]
     EncodedPayload(String),
-    #[error("Failed to convert polynomial: {0}")]
-    Poly(String),
     #[error("Failed to parse G1 point: {0}")]
     G1Point(String),
     #[error("Failed to parse G2 point: {0}")]
@@ -43,8 +41,6 @@ pub enum ConversionError {
     BatchHeader(String),
     #[error("Failed to parse blob key: {0}")]
     BlobKey(String),
-    #[error(transparent)]
-    ArkSerializationError(#[from] ark_serialize::SerializationError),
     #[error("Failed to parse signed batch: {0}")]
     SignedBatch(String),
     #[error("Private Key Error")]
@@ -83,16 +79,6 @@ pub enum RelayPayloadRetrieverError {
 /// Errors specific to the Blob type
 #[derive(Debug, thiserror::Error)]
 pub enum BlobError {
-    #[error("Invalid blob length: {0}")]
-    InvalidBlobLength(usize),
-    #[error("Blob length is zero")]
-    InvalidBlobLengthZero,
-    #[error("Blob length is not a power of two")]
-    InvalidBlobLengthNotPowerOfTwo(usize),
-    #[error("Mismatch between commitment ({0}) and blob ({1})")]
-    CommitmentAndBlobLengthMismatch(usize, usize),
-    #[error("Invalid data length: {0}")]
-    InvalidDataLength(usize),
     #[error("Invalid quorum number: {0}")]
     InvalidQuorumNumber(u32),
     #[error("Missing field: {0}")]

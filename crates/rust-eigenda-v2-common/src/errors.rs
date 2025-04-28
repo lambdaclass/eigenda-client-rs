@@ -1,5 +1,3 @@
-use ark_bn254::{Fr, G1Affine};
-
 /// Errors specific to the EigenDA certificate
 #[derive(Debug, thiserror::Error)]
 pub enum EigenDACertError {
@@ -10,8 +8,6 @@ pub enum EigenDACertError {
 /// Errors specific to the Blob type
 #[derive(Debug, thiserror::Error)]
 pub enum BlobError {
-    #[error("Invalid blob length: {0}")]
-    InvalidBlobLength(usize),
     #[error("Blob length is zero")]
     InvalidBlobLengthZero,
     #[error("Blob length is not a power of two")]
@@ -20,12 +16,6 @@ pub enum BlobError {
     CommitmentAndBlobLengthMismatch(usize, usize),
     #[error("Invalid data length: {0}")]
     InvalidDataLength(usize),
-    #[error("Invalid quorum number: {0}")]
-    InvalidQuorumNumber(u32),
-    #[error("Missing field: {0}")]
-    MissingField(String),
-    #[error(transparent)]
-    Bn254(#[from] Bn254Error),
     #[error(transparent)]
     Conversion(#[from] ConversionError),
 }
@@ -45,13 +35,4 @@ pub enum ConversionError {
     Payload(String),
     #[error("Failed to parse encoded payload: {0}")]
     EncodedPayload(String),
-}
-
-/// Errors related to the BN254 and its points
-#[derive(Debug, thiserror::Error)]
-pub enum Bn254Error {
-    #[error("Insufficient SRS in memory: have {0}, need {1}")]
-    InsufficientSrsInMemory(usize, usize),
-    #[error("Failed calculating multi scalar multiplication on base {:?} with scalars {:?}", .0, .1)]
-    FailedComputingMSM(Vec<G1Affine>, Vec<Fr>),
 }

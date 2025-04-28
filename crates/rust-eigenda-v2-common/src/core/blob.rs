@@ -67,8 +67,7 @@ impl Blob {
     /// conversion, if any, must be performed when creating a payload from the blob.
     pub fn to_payload(&self, payload_form: PayloadForm) -> Result<Payload, BlobError> {
         let encoded_payload = self.to_encoded_payload(payload_form)?;
-        let payload = encoded_payload
-            .decode()?;
+        let payload = encoded_payload.decode()?;
         Ok(payload)
     }
 

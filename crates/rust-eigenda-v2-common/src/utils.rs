@@ -135,7 +135,6 @@ pub(crate) fn coeff_to_eval_poly(
     Ok(evals)
 }
 
-
 /// Converts an eval_poly to a coeff_poly, using the IFFT operation
 ///
 /// blob_length_symbols is required, to be able to choose the correct parameters when performing FFT

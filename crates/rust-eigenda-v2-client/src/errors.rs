@@ -16,8 +16,6 @@ pub enum EigenClientError {
     Blob(#[from] BlobError),
     #[error(transparent)]
     PayloadDisperser(#[from] PayloadDisperserError),
-    #[error(transparent)]
-    CommonBlob(#[from] rust_eigenda_v2_common::BlobError), // TODO: fix this
 }
 
 /// Errors specific to conversion
@@ -73,7 +71,7 @@ pub enum RelayPayloadRetrieverError {
     #[error("Retrieval request to relay timed out")]
     RetrievalTimeout,
     #[error(transparent)]
-    CommonBlob(#[from] rust_eigenda_v2_common::BlobError), // TODO: fix this
+    CommonBlob(#[from] rust_eigenda_v2_common::BlobError),
 }
 
 /// Errors specific to the Blob type

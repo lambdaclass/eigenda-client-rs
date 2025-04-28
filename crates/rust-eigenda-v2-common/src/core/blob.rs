@@ -48,6 +48,16 @@ impl Blob {
         )
     }
 
+    /// Converts the [`Blob`] into a [`Payload`].
+    ///
+    /// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
+    /// conversion, if any, must be performed when creating a payload from the blob.
+    pub fn to_payload(&self, payload_form: PayloadForm) -> Result<Payload, BlobError> {
+        let encoded_payload = self.to_encoded_payload(payload_form)?;
+        let payload = encoded_payload.decode()?;
+        Ok(payload)
+    }
+
     /// Accepts the length of an array that has been padded with pad_payload
     ///
     /// It returns what the length of the output array would be, if you called remove_internal_padding on it.
@@ -59,16 +69,6 @@ impl Blob {
         let bytes_per_chunk = BYTES_PER_SYMBOL - 1;
 
         Ok(chunck_count * bytes_per_chunk)
-    }
-
-    /// Converts the [`Blob`] into a [`Payload`].
-    ///
-    /// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
-    /// conversion, if any, must be performed when creating a payload from the blob.
-    pub fn to_payload(&self, payload_form: PayloadForm) -> Result<Payload, BlobError> {
-        let encoded_payload = self.to_encoded_payload(payload_form)?;
-        let payload = encoded_payload.decode()?;
-        Ok(payload)
     }
 
     /// Gets the size in bytes of the largest payload that could fit inside the blob.

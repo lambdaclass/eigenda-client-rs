@@ -14,4 +14,6 @@ pub enum ConversionError {
     G2Point(String),
     #[error(transparent)]
     ArkSerializationError(#[from] ark_serialize::SerializationError),
+    #[error("Failed to convert polynomial: {0}")]
+    Poly(String),
 }

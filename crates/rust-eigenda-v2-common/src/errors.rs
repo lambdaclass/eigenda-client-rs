@@ -17,3 +17,18 @@ pub enum ConversionError {
     #[error("Failed to convert polynomial: {0}")]
     Poly(String),
 }
+
+/// Errors specific to the Blob type
+#[derive(Debug, thiserror::Error)]
+pub enum BlobError {
+    #[error("Invalid blob length: {0}")]
+    InvalidBlobLength(usize),
+    #[error("Blob length is zero")]
+    InvalidBlobLengthZero,
+    #[error("Blob length is not a power of two")]
+    InvalidBlobLengthNotPowerOfTwo(usize),
+    #[error("Mismatch between commitment ({0}) and blob ({1})")]
+    CommitmentAndBlobLengthMismatch(usize, usize),
+    #[error("Invalid data length: {0}")]
+    InvalidDataLength(usize),
+}

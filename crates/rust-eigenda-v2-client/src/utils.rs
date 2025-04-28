@@ -61,18 +61,6 @@ impl FromStr for PrivateKey {
     }
 }
 
-/// Converts an eval_poly to a coeff_poly, using the IFFT operation
-///
-/// blob_length_symbols is required, to be able to choose the correct parameters when performing FFT
-pub(crate) fn eval_to_coeff_poly(
-    eval_poly: Vec<Fr>,
-    blob_length_symbols: usize,
-) -> Result<Vec<Fr>, ConversionError> {
-    Ok(GeneralEvaluationDomain::<Fr>::new(blob_length_symbols)
-        .ok_or(ConversionError::Poly("Failed to create domain".to_string()))?
-        .ifft(&eval_poly))
-}
-
 /// coeff_to_eval_poly converts a polynomial in coefficient form to one in evaluation form, using the FFT operation.
 pub(crate) fn coeff_to_eval_poly(
     coeff_poly: Vec<Fr>,

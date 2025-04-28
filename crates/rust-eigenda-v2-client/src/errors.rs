@@ -16,6 +16,8 @@ pub enum EigenClientError {
     Blob(#[from] BlobError),
     #[error(transparent)]
     PayloadDisperser(#[from] PayloadDisperserError),
+    #[error(transparent)]
+    CommonBlob(#[from] rust_eigenda_v2_common::BlobError), // TODO: fix this
 }
 
 /// Errors specific to conversion
@@ -52,7 +54,7 @@ pub enum ConversionError {
     #[error(transparent)]
     Wallet(#[from] WalletError),
     #[error(transparent)]
-    EigenDACert(#[from] rust_eigenda_v2_common::ConversionError),
+    EigenDACommon(#[from] rust_eigenda_v2_common::ConversionError),
     #[error("Failed to convert U256: {0}")]
     U256Conversion(String),
 }
@@ -74,6 +76,8 @@ pub enum RelayPayloadRetrieverError {
     InvalidCertificate(String),
     #[error("Retrieval request to relay timed out")]
     RetrievalTimeout,
+    #[error(transparent)]
+    CommonBlob(#[from] rust_eigenda_v2_common::BlobError), // TODO: fix this
 }
 
 /// Errors specific to the Blob type

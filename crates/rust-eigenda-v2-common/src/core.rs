@@ -3,6 +3,7 @@ mod encoded_payload;
 mod payload;
 
 pub use blob::Blob;
+pub use encoded_payload::EncodedPayload;
 pub use payload::Payload;
 
 pub(crate) const BYTES_PER_SYMBOL: usize = 32;

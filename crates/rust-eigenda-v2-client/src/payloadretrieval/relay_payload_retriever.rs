@@ -1,16 +1,191 @@
 use std::time::Duration;
 
+use ark_bn254::Fr;
 use rand::seq::SliceRandom;
-use rust_eigenda_v2_common::EigenDACert;
+use rust_eigenda_v2_common::{Blob, EigenDACert, EncodedPayload, Payload, PayloadForm};
+use rust_kzg_bn254_primitives::helpers::to_byte_array;
 use rust_kzg_bn254_prover::srs::SRS;
 use tokio::time::timeout;
 
 use crate::{
     commitment_utils::generate_and_compare_blob_commitment,
-    core::{Blob, BlobKey, Payload, PayloadForm},
-    errors::{ConversionError, RelayPayloadRetrieverError},
+    core::{BlobKey, BYTES_PER_SYMBOL},
+    errors::{ConversionError, EigenClientError, RelayPayloadRetrieverError},
     relay_client::{RelayClient, RelayKey},
+    utils::coeff_to_eval_poly,
 };
+
+/// Accepts the length of a byte array, and returns the length that the array would be after
+/// adding internal byte padding.
+///
+/// The value returned from this function will always be a multiple of [`BYTES_PER_SYMBOL`]
+fn get_padded_data_length(data_length: usize) -> usize {
+    let bytes_per_chunk = BYTES_PER_SYMBOL - 1;
+    let mut chunk_count = data_length / bytes_per_chunk;
+
+    if data_length % bytes_per_chunk != 0 {
+        chunk_count += 1;
+    }
+
+    chunk_count * BYTES_PER_SYMBOL
+}
+
+/// Creates an `EncodedPayload` from an array of field elements.
+/// `max_payload_length` is the maximum length in bytes that the contained [`Payload`] is permitted to be.
+pub fn encoded_payload_from_field_elements(
+    field_elements: &[Fr],
+    max_payload_length: usize,
+) -> Result<EncodedPayload, ConversionError> {
+    let serialized_felts = to_byte_array(field_elements, usize::MAX);
+    // read payload length from the payload header
+    let payload_length = match serialized_felts[2..6].try_into() {
+        Ok(arr) => u32::from_be_bytes(arr),
+        Err(_) => {
+            return Err(ConversionError::EncodedPayload(
+                "invalid serialized field elements: couldn't read payload length".to_string(),
+            ))
+        }
+    };
+
+    if payload_length > max_payload_length as u32 {
+        return Err(ConversionError::EncodedPayload(
+            "invalid serialized field elements: payload length is greater than maximum allowed"
+                .to_string(),
+        ));
+    }
+
+    let padded_length = get_padded_data_length(payload_length as usize);
+    // add 32 to take into account the payload header
+    let encoded_payload_length = padded_length + 32;
+
+    let serialized_felts_length = serialized_felts.len();
+    let length_to_copy = encoded_payload_length.min(serialized_felts_length);
+
+    if encoded_payload_length < serialized_felts_length {
+        // serialized_felts is longer than encoded_payload_length,
+        // so we need to check that the remaining bytes are all 0.
+        let remaining_serialized_felts = serialized_felts
+            .iter()
+            .enumerate()
+            .skip(encoded_payload_length);
+        for (index, &byte) in remaining_serialized_felts {
+            if byte != 0 {
+                return Err(ConversionError::EncodedPayload(format!(
+                    "byte at index {} was expected to be 0x00, but instead was 0x{:02x}",
+                    index, byte
+                )));
+            }
+        }
+    }
+
+    // Create a byte vector of size encoded_payload_length filled with zeros
+    let mut encoded_payload_bytes = vec![0u8; encoded_payload_length];
+
+    // Copy data from serialized_felts up to length_to_copy
+    encoded_payload_bytes[..length_to_copy].copy_from_slice(&serialized_felts[..length_to_copy]);
+
+    // Return a new EncodedPayload with the byte vector
+    Ok(EncodedPayload {
+        bytes: encoded_payload_bytes,
+    })
+}
+
+/// Creates an [`EncodedPayload`] from the blob.
+///
+/// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
+/// conversion, if any, must be performed when creating an encoded payload from the blob.
+fn blob_to_encoded_payload(
+    blob: &Blob,
+    payload_form: PayloadForm,
+) -> Result<EncodedPayload, EigenClientError> {
+    let payload_elements = match payload_form {
+        PayloadForm::Coeff => blob.coeff_polynomial.clone(),
+        PayloadForm::Eval => {
+            coeff_to_eval_poly(blob.coeff_polynomial.clone(), blob.blob_length_symbols)?
+        }
+    };
+
+    let max_possible_payload_length =
+        blob.get_max_permissible_payloadlength(blob.blob_length_symbols)?;
+    Ok(encoded_payload_from_field_elements(
+        &payload_elements,
+        max_possible_payload_length,
+    )?)
+}
+
+/// Accepts an array of padded data, and removes the internal padding.
+///
+/// This function assumes that the input aligns to 32 bytes. Since it is removing 1 byte for every 31 bytes kept, the
+/// output from this function is not guaranteed to align to 32 bytes.
+fn remove_internal_padding(padded_data: &[u8]) -> Result<Vec<u8>, ConversionError> {
+    if padded_data.len() % BYTES_PER_SYMBOL != 0 {
+        return Err(ConversionError::EncodedPayload(format!(
+            "padded data (length {}) must be multiple of BYTES_PER_SYMBOL ({})",
+            padded_data.len(),
+            BYTES_PER_SYMBOL
+        )));
+    }
+
+    let bytes_per_chunk = BYTES_PER_SYMBOL - 1;
+    let symbol_count = padded_data.len() / BYTES_PER_SYMBOL;
+    let output_length = symbol_count * bytes_per_chunk;
+
+    let mut output_data = vec![0u8; output_length];
+
+    for i in 0..symbol_count {
+        let dst_index = i * bytes_per_chunk;
+        let src_index = i * BYTES_PER_SYMBOL + 1;
+
+        output_data[dst_index..dst_index + bytes_per_chunk]
+            .copy_from_slice(&padded_data[src_index..src_index + bytes_per_chunk]);
+    }
+
+    Ok(output_data)
+}
+
+/// Decodes the [`EncodedPayload`] back into a [`Payload`].
+pub fn decode_encoded_payload(
+    encoded_payload: &EncodedPayload,
+) -> Result<Payload, ConversionError> {
+    let expected_data_length = match encoded_payload.bytes[2..6].try_into() {
+        Ok(arr) => u32::from_be_bytes(arr),
+        Err(_) => {
+            return Err(ConversionError::Payload(
+                "Invalid header format: couldn't read data length".to_string(),
+            ))
+        }
+    };
+    // decode raw data modulo bn254
+    let unpadded_data = remove_internal_padding(&encoded_payload.bytes[32..])?;
+    let unpadded_data_length = unpadded_data.len() as u32;
+
+    // data length is checked when constructing an encoded payload. If this error is encountered, that means there
+    // must be a flaw in the logic at construction time (or someone was bad and didn't use the proper construction methods)
+    if unpadded_data_length < expected_data_length {
+        return Err(ConversionError::Payload(
+            "Invalid header format: data length is less than expected".to_string(),
+        ));
+    }
+
+    if unpadded_data_length > expected_data_length + 31 {
+        return Err(ConversionError::Payload(
+            "Invalid header format: data length is greater than expected".to_string(),
+        ));
+    }
+
+    Ok(Payload::new(
+        unpadded_data[0..expected_data_length as usize].to_vec(),
+    ))
+}
+
+/// Converts the [`Blob`] into a [`Payload`].
+///
+/// The payload_form indicates how payloads are interpreted. The way that payloads are interpreted dictates what
+/// conversion, if any, must be performed when creating a payload from the blob.
+fn blob_to_payload(blob: &Blob, payload_form: PayloadForm) -> Result<Payload, EigenClientError> {
+    let encoded_payload = blob_to_encoded_payload(blob, payload_form)?;
+    decode_encoded_payload(&encoded_payload).map_err(EigenClientError::Conversion)
+}
 
 /// Computes the blob_key of the blob that belongs to the EigenDACert
 fn compute_blob_key(eigenda_cert: &EigenDACert) -> Result<BlobKey, ConversionError> {
@@ -133,7 +308,7 @@ impl RelayPayloadRetriever {
                 continue;
             }
 
-            let payload = match blob.to_payload(self.config.payload_form) {
+            let payload = match blob_to_payload(&blob, self.config.payload_form) {
                 Ok(payload) => payload,
                 Err(err) => {
                     println!(

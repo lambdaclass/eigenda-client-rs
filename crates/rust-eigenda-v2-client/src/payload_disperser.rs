@@ -1,9 +1,9 @@
 use ethereum_types::H160;
-use rust_eigenda_v2_common::EigenDACert;
+use rust_eigenda_v2_common::{EigenDACert, Payload, PayloadForm};
 
 use crate::{
     cert_verifier::CertVerifier,
-    core::{eigenda_cert::build_cert_from_reply, BlobKey, Payload, PayloadForm},
+    core::{eigenda_cert::build_cert_from_reply, BlobKey},
     disperser_client::{DisperserClient, DisperserClientConfig},
     errors::{ConversionError, EigenClientError, PayloadDisperserError},
     generated::disperser::v2::{BlobStatus, BlobStatusReply},
@@ -58,7 +58,9 @@ impl PayloadDisperser {
 
     /// Executes the dispersal of a payload, returning the associated blob key
     pub async fn send_payload(&self, payload: Payload) -> Result<BlobKey, PayloadDisperserError> {
-        let blob = payload.to_blob(self.config.polynomial_form)?;
+        let blob = payload
+            .to_blob(self.config.polynomial_form)
+            .map_err(ConversionError::EigenDACommon)?;
 
         let (blob_status, blob_key) = self
             .disperser_client
@@ -147,8 +149,9 @@ impl PayloadDisperser {
 
 #[cfg(test)]
 mod tests {
+    use rust_eigenda_v2_common::{Payload, PayloadForm};
+
     use crate::{
-        core::{Payload, PayloadForm},
         payload_disperser::{PayloadDisperser, PayloadDisperserConfig},
         tests::{
             get_test_holesky_rpc_url, get_test_private_key, CERT_VERIFIER_ADDRESS,

@@ -68,7 +68,7 @@ fn pad_to_bn254(data: &[u8]) -> Vec<u8> {
 #[derive(Debug, PartialEq)]
 pub struct EncodedPayload {
     /// the size of these bytes is guaranteed to be a multiple of 32
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 impl EncodedPayload {

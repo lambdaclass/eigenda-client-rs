@@ -3,7 +3,7 @@ use ark_ff::{AdditiveGroup, Fp, Fp2, PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
 use rust_kzg_bn254_primitives::helpers::{lexicographically_largest, read_g1_point_from_bytes_be};
 
-use crate::ConversionError;
+use crate::{ArkSerializationError, ConversionError};
 
 const COMPRESSED_SMALLEST: u8 = 0b10 << 6;
 const COMPRESSED_LARGEST: u8 = 0b11 << 6;
@@ -29,7 +29,10 @@ pub fn g1_commitment_to_bytes(point: &G1Affine) -> Result<Vec<u8>, ConversionErr
 
     // Get X bytes
     let mut x_bytes = Vec::new();
-    point.x.serialize_compressed(&mut x_bytes)?;
+    point
+        .x
+        .serialize_compressed(&mut x_bytes)
+        .map_err(ArkSerializationError::from)?;
     bytes.copy_from_slice(&x_bytes);
     bytes.reverse();
 
@@ -104,7 +107,9 @@ pub fn g2_commitment_to_bytes(point: &G2Affine) -> Result<Vec<u8>, ConversionErr
         bytes[0] |= COMPRESSED_INFINITY;
         return Ok(bytes);
     }
-    point.serialize_compressed(&mut bytes)?;
+    point
+        .serialize_compressed(&mut bytes)
+        .map_err(ArkSerializationError::from)?;
     switch_endianess(&mut bytes);
 
     let mut lex_largest = lexicographically_largest(&point.y.c1);

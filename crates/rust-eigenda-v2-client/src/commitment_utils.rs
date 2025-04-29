@@ -2,7 +2,6 @@ use ark_bn254::{G1Affine, G1Projective, G2Affine};
 use ark_ec::{CurveGroup, VariableBaseMSM};
 use ark_ff::{AdditiveGroup, Fp, Fp2, PrimeField, Zero};
 use ark_serialize::CanonicalSerialize;
-use rust_eigenda_v2_common::ArkSerializationError;
 use rust_kzg_bn254_primitives::helpers::{lexicographically_largest, read_g1_point_from_bytes_be};
 
 use crate::{
@@ -67,7 +66,7 @@ pub(crate) fn g1_commitment_to_bytes(point: &G1Affine) -> Result<Vec<u8>, Conver
     point
         .x
         .serialize_compressed(&mut x_bytes)
-        .map_err(ArkSerializationError::from)?;
+        .map_err(|e| ConversionError::ArkSerialization(e.to_string()))?;
     bytes.copy_from_slice(&x_bytes);
     bytes.reverse();
 
@@ -144,7 +143,7 @@ pub fn g2_commitment_to_bytes(point: &G2Affine) -> Result<Vec<u8>, ConversionErr
     }
     point
         .serialize_compressed(&mut bytes)
-        .map_err(ArkSerializationError::from)?;
+        .map_err(|e| ConversionError::ArkSerialization(e.to_string()))?;
     switch_endianess(&mut bytes);
 
     let mut lex_largest = lexicographically_largest(&point.y.c1);

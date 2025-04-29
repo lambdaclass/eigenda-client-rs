@@ -8,7 +8,7 @@ use tokio::time::timeout;
 use crate::{
     commitment_utils::generate_and_compare_blob_commitment,
     core::BlobKey,
-    errors::{ConversionError, RelayPayloadRetrieverError},
+    errors::{BlobError, ConversionError, RelayPayloadRetrieverError},
     relay_client::{RelayClient, RelayKey},
 };
 
@@ -169,7 +169,8 @@ impl RelayPayloadRetriever {
         .await
         .map_err(|_| RelayPayloadRetrieverError::RetrievalTimeout)??;
 
-        let blob = Blob::deserialize_blob(blob_bytes, blob_length_symbols as usize)?;
+        let blob = Blob::deserialize_blob(blob_bytes, blob_length_symbols as usize)
+            .map_err(BlobError::CommonBlob)?;
         Ok(blob)
     }
 }

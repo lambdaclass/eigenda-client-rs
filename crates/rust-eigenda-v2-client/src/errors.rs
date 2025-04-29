@@ -70,8 +70,6 @@ pub enum RelayPayloadRetrieverError {
     InvalidCertificate(String),
     #[error("Retrieval request to relay timed out")]
     RetrievalTimeout,
-    #[error(transparent)]
-    CommonBlob(#[from] rust_eigenda_v2_common::BlobError),
 }
 
 /// Errors specific to the Blob type
@@ -83,6 +81,8 @@ pub enum BlobError {
     MissingField(String),
     #[error(transparent)]
     Bn254(#[from] Bn254Error),
+    #[error(transparent)]
+    CommonBlob(#[from] rust_eigenda_v2_common::BlobError),
 }
 
 /// Errors related to the BN254 and its points

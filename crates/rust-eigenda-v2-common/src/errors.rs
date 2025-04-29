@@ -33,7 +33,7 @@ pub enum ArkSerializationError {
     UnexpectedFlags,
     /// During serialization, we countered an I/O error.
     #[error("IO error")]
-    IoError(std::io::Error),
+    IoError,
 }
 
 impl From<ark_serialize::SerializationError> for ArkSerializationError {
@@ -42,7 +42,7 @@ impl From<ark_serialize::SerializationError> for ArkSerializationError {
             ark_serialize::SerializationError::NotEnoughSpace => Self::NotEnoughSpace,
             ark_serialize::SerializationError::InvalidData => Self::InvalidData,
             ark_serialize::SerializationError::UnexpectedFlags => Self::UnexpectedFlags,
-            ark_serialize::SerializationError::IoError(e) => Self::IoError(e),
+            ark_serialize::SerializationError::IoError(_) => Self::IoError,
         }
     }
 }

@@ -38,6 +38,8 @@ pub enum ConversionError {
     BatchHeader(String),
     #[error("Failed to parse blob key: {0}")]
     BlobKey(String),
+    #[error("Failed to serialize ark: {0}")]
+    ArkSerialization(String),
     #[error("Failed to parse signed batch: {0}")]
     SignedBatch(String),
     #[error("Private Key Error")]

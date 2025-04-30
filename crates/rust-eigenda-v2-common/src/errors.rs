@@ -27,12 +27,12 @@ pub enum ConversionError {
     G1Point(String),
     #[error("Failed to parse G2 point: {0}")]
     G2Point(String),
-    #[error(transparent)]
-    ArkSerializationError(#[from] ark_serialize::SerializationError),
     #[error("Failed to convert polynomial: {0}")]
     Poly(String),
     #[error("Failed to parse payload: {0}")]
     Payload(String),
     #[error("Failed to parse encoded payload: {0}")]
     EncodedPayload(String),
+    #[error("Failed to serialize ark: {0}")]
+    ArkSerialization(String),
 }

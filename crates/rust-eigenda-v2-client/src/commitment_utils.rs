@@ -63,7 +63,10 @@ pub(crate) fn g1_commitment_to_bytes(point: &G1Affine) -> Result<Vec<u8>, Conver
 
     // Get X bytes
     let mut x_bytes = Vec::new();
-    point.x.serialize_compressed(&mut x_bytes)?;
+    point
+        .x
+        .serialize_compressed(&mut x_bytes)
+        .map_err(|e| ConversionError::ArkSerialization(e.to_string()))?;
     bytes.copy_from_slice(&x_bytes);
     bytes.reverse();
 
@@ -138,7 +141,9 @@ pub fn g2_commitment_to_bytes(point: &G2Affine) -> Result<Vec<u8>, ConversionErr
         bytes[0] |= COMPRESSED_INFINITY;
         return Ok(bytes);
     }
-    point.serialize_compressed(&mut bytes)?;
+    point
+        .serialize_compressed(&mut bytes)
+        .map_err(|e| ConversionError::ArkSerialization(e.to_string()))?;
     switch_endianess(&mut bytes);
 
     let mut lex_largest = lexicographically_largest(&point.y.c1);

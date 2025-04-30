@@ -12,6 +12,6 @@ pub enum ConversionError {
     G1Point(String),
     #[error("Failed to parse G2 point: {0}")]
     G2Point(String),
-    #[error(transparent)]
-    ArkSerializationError(#[from] ark_serialize::SerializationError),
+    #[error("Failed to serialize ark: {0}")]
+    ArkSerialization(String),
 }

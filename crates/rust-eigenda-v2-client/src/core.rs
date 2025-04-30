@@ -1,11 +1,9 @@
 mod blob_key;
-mod blob_request_signer;
 pub mod eigenda_cert;
 mod payment;
 
 pub use blob_key::BlobKey;
-pub use blob_request_signer::{BlobRequestSigner, LocalBlobRequestSigner};
-pub use payment::{OnDemandPayment, PaymentMetadata, ReservedPayment};
+pub use payment::{OnDemandPayment, PaymentMetadata, ReservedPayment, PaymentStateRequest};
 
 pub(crate) const BYTES_PER_SYMBOL: usize = 32;
 

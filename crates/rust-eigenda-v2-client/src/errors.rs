@@ -4,7 +4,6 @@ use ethers::signers::WalletError;
 use rust_kzg_bn254_primitives::errors::KzgError;
 
 use crate::relay_client::RelayKey;
-use hex::FromHexError;
 use prost::DecodeError;
 
 /// Errors returned by the client.
@@ -173,18 +172,7 @@ pub enum DisperseError {
     #[error("Failed to get current time")]
     SystemTime(#[from] std::time::SystemTimeError),
     #[error(transparent)]
-    Signer(#[from] SignerError),
-}
-
-/// Errors specific to the Signer
-#[derive(Debug, thiserror::Error)]
-pub enum SignerError {
-    #[error("Failed to parse private key: {0}")]
-    PrivateKey(#[from] FromHexError),
-    #[error(transparent)]
-    Secp(#[from] secp256k1::Error),
-    #[error(transparent)]
-    Conversion(#[from] ConversionError),
+    Signer(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Errors specific to the [`PayloadDisperser`].
@@ -211,4 +199,6 @@ pub enum CertVerifierError {
     InvalidCertVerifierAddress(H160),
     #[error("Error while calling contract function: {0}")]
     Contract(String),
+    #[error("Error while signing: {0}")]
+    Signing(String),
 }

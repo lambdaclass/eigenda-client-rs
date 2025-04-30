@@ -65,7 +65,9 @@ impl<S> PayloadDisperser<S> {
     where
         S: Sign,
     {
-        let blob = payload.to_blob(self.config.polynomial_form).map_err(ConversionError::EigenDACommon)?;
+        let blob = payload
+            .to_blob(self.config.polynomial_form)
+            .map_err(ConversionError::EigenDACommon)?;
 
         let (blob_status, blob_key) = self
             .disperser_client

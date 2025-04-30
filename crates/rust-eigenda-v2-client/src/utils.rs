@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use crate::{core::BYTES_PER_SYMBOL, errors::{ConversionError, EigenClientError}};
+use crate::{
+    core::BYTES_PER_SYMBOL,
+    errors::{ConversionError, EigenClientError},
+};
 use ark_bn254::Fr;
 use ark_ff::fields::PrimeField;
 use secrecy::{ExposeSecret, Secret};

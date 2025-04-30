@@ -1,9 +1,4 @@
-use std::str::FromStr;
-
-use crate::{
-    core::BYTES_PER_SYMBOL,
-    errors::{ConversionError, EigenClientError},
-};
+use crate::{core::BYTES_PER_SYMBOL, errors::ConversionError};
 use ark_bn254::Fr;
 use ark_ff::fields::PrimeField;
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
@@ -38,26 +33,6 @@ impl TryFrom<SecretUrl> for String {
 impl PartialEq for SecretUrl {
     fn eq(&self, other: &Self) -> bool {
         self.inner.expose_secret().eq(other.inner.expose_secret())
-    }
-}
-
-/// Secretly enclosed Private Key
-#[derive(Debug, Clone)]
-pub struct PrivateKey(pub Secret<String>);
-
-impl PartialEq for PrivateKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.expose_secret().eq(other.0.expose_secret())
-    }
-}
-
-impl FromStr for PrivateKey {
-    type Err = EigenClientError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(PrivateKey(
-            s.parse().map_err(|_| ConversionError::PrivateKey)?,
-        ))
     }
 }
 

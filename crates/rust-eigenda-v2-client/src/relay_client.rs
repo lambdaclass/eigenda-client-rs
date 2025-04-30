@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use ethabi::Address;
+use ethers::signers::Signer;
 use tonic::transport::Channel;
 
 use crate::{
@@ -11,8 +12,9 @@ use crate::{
         GetBlobRequest,
     },
     relay_registry::RelayRegistry,
-    utils::{PrivateKey, SecretUrl},
+    utils::SecretUrl,
 };
+use rust_eigenda_signers::signers::ethers::Signer as EthersSigner;
 
 pub type RelayKey = u32;
 
@@ -33,10 +35,10 @@ pub struct RelayClient {
 }
 
 impl RelayClient {
-    pub async fn new(
-        config: RelayClientConfig,
-        private_key: PrivateKey,
-    ) -> Result<Self, RelayClientError> {
+    pub async fn new<S>(config: RelayClientConfig, signer: S) -> Result<Self, RelayClientError>
+    where
+        EthersSigner<S>: Signer,
+    {
         if config.max_grpc_message_size == 0 {
             return Err(RelayClientError::InvalidMaxGrpcMessageSize);
         }
@@ -44,7 +46,7 @@ impl RelayClient {
         let relay_registry = RelayRegistry::new(
             config.relay_registry_address,
             config.eth_rpc_url.clone(),
-            private_key,
+            signer,
         )?;
 
         let mut rpc_clients = HashMap::new();
@@ -86,7 +88,9 @@ mod tests {
     use super::*;
     use crate::{
         relay_client::RelayClient,
-        tests::{get_test_holesky_rpc_url, get_test_private_key, HOLESKY_RELAY_REGISTRY_ADDRESS},
+        tests::{
+            get_test_holesky_rpc_url, get_test_private_key_signer, HOLESKY_RELAY_REGISTRY_ADDRESS,
+        },
     };
 
     fn get_test_relay_client_config() -> RelayClientConfig {
@@ -101,9 +105,12 @@ mod tests {
     #[ignore = "depends on external RPC"]
     #[tokio::test]
     async fn test_retrieve_single_blob() {
-        let mut client = RelayClient::new(get_test_relay_client_config(), get_test_private_key())
-            .await
-            .unwrap();
+        let mut client = RelayClient::new(
+            get_test_relay_client_config(),
+            get_test_private_key_signer(),
+        )
+        .await
+        .unwrap();
 
         let blob_key =
             BlobKey::from_hex("625eaa1a5695b260e0caab1c4d4ec97a5211455e8eee0e4fe9464fe8300cf1c4")

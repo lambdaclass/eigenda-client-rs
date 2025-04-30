@@ -1,9 +1,9 @@
 use ethers::prelude::*;
+use rust_eigenda_signers::signers::ethers::Signer as EthersSigner;
+use rust_eigenda_v2_common::{EigenDACert, NonSignerStakesAndSignature};
 use std::sync::Arc;
 
 use ethereum_types::H160;
-use rust_eigenda_v2_common::{EigenDACert, NonSignerStakesAndSignature};
-use secrecy::ExposeSecret;
 
 use crate::{
     core::eigenda_cert::SignedBatch,
@@ -15,31 +15,28 @@ use crate::{
             NonSignerStakesAndSignature as NonSignerStakesAndSignatureContract,
         },
     },
-    utils::{PrivateKey, SecretUrl},
+    utils::SecretUrl,
 };
 
 #[derive(Debug, Clone)]
 /// Provides methods for interacting with the EigenDA CertVerifier contract.
-pub struct CertVerifier {
-    cert_verifier_contract: IEigenDACertVerifier<SignerMiddleware<Provider<Http>, LocalWallet>>,
+pub struct CertVerifier<S> {
+    cert_verifier_contract: IEigenDACertVerifier<SignerMiddleware<Provider<Http>, EthersSigner<S>>>,
 }
 
-impl CertVerifier {
+impl<S> CertVerifier<S> {
     /// Creates a new instance of [`CertVerifier`], receiving the address of the contract and the ETH RPC url.
-    pub fn new(
-        address: H160,
-        rpc_url: SecretUrl,
-        private_key: PrivateKey,
-    ) -> Result<Self, CertVerifierError> {
+    pub fn new(address: H160, rpc_url: SecretUrl, signer: S) -> Result<Self, CertVerifierError>
+    where
+        EthersSigner<S>: Signer,
+    {
         let url: String = rpc_url.try_into()?;
 
         let provider = Provider::<Http>::try_from(url).map_err(ConversionError::UrlParse)?;
-        let wallet: LocalWallet = private_key
-            .0
-            .expose_secret()
-            .parse()
-            .map_err(ConversionError::Wallet)?;
-        let client = SignerMiddleware::new(provider, wallet);
+        // ethers hard codes 1 when constructing wallets
+        let chain_id = 1;
+        let signer = EthersSigner::new(signer, chain_id);
+        let client = SignerMiddleware::new(provider, signer);
         let client = Arc::new(client);
         let cert_verifier_contract = IEigenDACertVerifier::new(address, client);
         Ok(CertVerifier {
@@ -52,7 +49,10 @@ impl CertVerifier {
     pub async fn get_non_signer_stakes_and_signature(
         &self,
         signed_batch: SignedBatchProto,
-    ) -> Result<NonSignerStakesAndSignature, CertVerifierError> {
+    ) -> Result<NonSignerStakesAndSignature, CertVerifierError>
+    where
+        EthersSigner<S>: Signer,
+    {
         let signed_batch: SignedBatch = signed_batch.try_into()?;
         let contract_signed_batch = signed_batch.into();
         let non_signer_stakes_and_signature: NonSignerStakesAndSignatureContract = self
@@ -69,7 +69,10 @@ impl CertVerifier {
 
     /// Queries the cert verifier contract for the configured set of quorum numbers that must
     /// be set in the BlobHeader, and verified in VerifyDACertV2 and verifyDACertV2FromSignedBatch
-    pub async fn quorum_numbers_required(&self) -> Result<Vec<u8>, CertVerifierError> {
+    pub async fn quorum_numbers_required(&self) -> Result<Vec<u8>, CertVerifierError>
+    where
+        EthersSigner<S>: Signer,
+    {
         let quorums: Bytes = self
             .cert_verifier_contract
             .quorum_numbers_required()
@@ -82,10 +85,10 @@ impl CertVerifier {
     /// Calls the VerifyCertV2 view function on the EigenDACertVerifier contract.
     ///
     /// This method returns an empty Result if the cert is successfully verified. Otherwise, it returns a [`CertVerifierError`].
-    pub async fn verify_cert_v2(
-        &self,
-        eigenda_cert: &EigenDACert,
-    ) -> Result<(), CertVerifierError> {
+    pub async fn verify_cert_v2(&self, eigenda_cert: &EigenDACert) -> Result<(), CertVerifierError>
+    where
+        EthersSigner<S>: Signer,
+    {
         self.cert_verifier_contract
             .verify_da_cert_v2(
                 eigenda_cert.batch_header.clone().into(),
@@ -114,7 +117,7 @@ mod tests {
 
     use crate::{
         cert_verifier::CertVerifier,
-        tests::{get_test_private_key, CERT_VERIFIER_ADDRESS, HOLESKY_ETH_RPC_URL},
+        tests::{get_test_private_key_signer, CERT_VERIFIER_ADDRESS, HOLESKY_ETH_RPC_URL},
         utils::SecretUrl,
     };
 
@@ -309,7 +312,7 @@ mod tests {
         let cert_verifier = CertVerifier::new(
             CERT_VERIFIER_ADDRESS,
             SecretUrl::new(Url::from_str(HOLESKY_ETH_RPC_URL).unwrap()),
-            get_test_private_key(),
+            get_test_private_key_signer(),
         )
         .unwrap();
         let res = cert_verifier.verify_cert_v2(&get_test_eigenda_cert()).await;

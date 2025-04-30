@@ -5,10 +5,12 @@ pub mod core;
 pub mod disperser_client;
 pub mod errors;
 pub mod payload_disperser;
-pub mod payloadretrieval;
 pub mod relay_client;
+pub mod relay_payload_retriever;
 pub mod relay_registry;
 pub mod utils;
+// So users can use the client without having to depend on the signers crate as well.
+pub use rust_eigenda_signers;
 
 #[allow(clippy::all)]
 pub(crate) mod generated {
@@ -66,12 +68,12 @@ mod tests {
     use crate::{
         core::{BlobKey, Payload, PayloadForm},
         payload_disperser::{PayloadDisperser, PayloadDisperserConfig},
-        payloadretrieval::relay_payload_retriever::{
-            RelayPayloadRetriever, RelayPayloadRetrieverConfig, SRSConfig,
-        },
         relay_client::RelayClient,
-        utils::{PrivateKey, SecretUrl},
+        relay_payload_retriever::{RelayPayloadRetriever, RelayPayloadRetrieverConfig, SRSConfig},
+        utils::SecretUrl,
     };
+
+    use rust_eigenda_signers::signers::private_key::Signer as PrivateKeySigner;
 
     const TEST_BLOB_FINALIZATION_TIMEOUT: u64 = 180;
     const TEST_PAYLOAD_DATA: &[u8] = &[1, 2, 3, 4, 5];
@@ -86,10 +88,13 @@ mod tests {
         0x0f, 0xdf, 0xbe, 0x11, 0x62,
     ]);
 
-    pub fn get_test_private_key() -> PrivateKey {
+    pub fn get_test_private_key_signer() -> PrivateKeySigner {
         dotenv().ok();
-        let private_key = env::var("SIGNER_PRIVATE_KEY").expect("SIGNER_PRIVATE_KEY must be set");
-        PrivateKey(private_key.into())
+        let private_key = env::var("SIGNER_PRIVATE_KEY")
+            .expect("SIGNER_PRIVATE_KEY must be set")
+            .parse()
+            .expect("valid secret key");
+        PrivateKeySigner::new(private_key)
     }
 
     fn get_test_payload_disperser_config() -> PayloadDisperserConfig {
@@ -132,9 +137,12 @@ mod tests {
     }
 
     pub async fn get_test_relay_client() -> RelayClient {
-        RelayClient::new(get_relay_client_test_config(), get_test_private_key())
-            .await
-            .unwrap()
+        RelayClient::new(
+            get_relay_client_test_config(),
+            get_test_private_key_signer(),
+        )
+        .await
+        .unwrap()
     }
 
     async fn wait_for_blob_finalization_and_verification(
@@ -169,10 +177,12 @@ mod tests {
         let payload = Payload::new(payload_data.clone());
 
         // First we disperse a blob using a Payload Disperser
-        let payload_disperser =
-            PayloadDisperser::new(get_test_payload_disperser_config(), get_test_private_key())
-                .await
-                .unwrap();
+        let payload_disperser = PayloadDisperser::new(
+            get_test_payload_disperser_config(),
+            get_test_private_key_signer(),
+        )
+        .await
+        .unwrap();
         let blob_key = payload_disperser.send_payload(payload).await.unwrap();
 
         // Then we wait for the blob to be finalized and verified

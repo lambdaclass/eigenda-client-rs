@@ -328,8 +328,7 @@ impl<S> PayloadDisperser<S> {
     where
         S: Sign,
     {
-        // let signed_batch: SignedBatch = signed_batch_proto.try_into()?;
-        let signed_batch: SignedBatch = signed_batch_proto.try_into().unwrap();
+        let signed_batch: SignedBatch = signed_batch_proto.try_into()?;
 
         let non_signers_pubkeys: Vec<G1Affine> =
             signed_batch.attestation.non_signer_pubkeys.clone();

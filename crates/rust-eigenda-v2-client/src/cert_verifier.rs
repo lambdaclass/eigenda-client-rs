@@ -120,9 +120,7 @@ impl CertVerifier {
     /// This method returns an empty Result if the cert is successfully verified. Otherwise, it returns a [`CertVerifierError`].
     pub async fn check_da_cert(&self, eigenda_cert: &EigenDACert) -> Result<(), CertVerifierError> {
         let reference_block_number = eigenda_cert.batch_header.reference_block_number;
-        // let abi_encoded_cert: Vec<u8> = eigenda_cert_to_abi_encoded(eigenda_cert)?;
-        // let abi_encoded_cert: Vec<u8> = eigenda_cert.to_abi_encoded()?;
-        let abi_encoded_cert: Vec<u8> = eigenda_cert.to_abi_encoded().unwrap();
+        let abi_encoded_cert: Vec<u8> = eigenda_cert.to_abi_encoded()?;
         let cert_verifier_base_contract = self
             .get_cert_verifier_base_contract(reference_block_number)
             .await?;
@@ -132,7 +130,7 @@ impl CertVerifier {
             .await
             .map_err(|_| CertVerifierError::Contract("check_da_cert".to_string()))?;
 
-        let status = CheckDACertStatus::try_from(res).unwrap();
+        let status = CheckDACertStatus::try_from(res)?;
         match status {
             CheckDACertStatus::NullError => {
                 return Err(CertVerifierError::VerificationFailedNullError);

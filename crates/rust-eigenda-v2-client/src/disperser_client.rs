@@ -125,8 +125,7 @@ impl<S> DisperserClient<S> {
         let Some(blob_commitments) = blob_commitment_reply.blob_commitment else {
             return Err(DisperseError::EmptyBlobCommitment);
         };
-        // let core_blob_commitments: BlobCommitments = blob_commitments.clone().try_into()?;
-        let core_blob_commitments: BlobCommitments = blob_commitments.clone().try_into().unwrap();
+        let core_blob_commitments: BlobCommitments = blob_commitments.clone().try_into()?;
         if core_blob_commitments.length != symbol_length as u32 {
             return Err(DisperseError::CommitmentLengthMismatch(
                 core_blob_commitments.length,
@@ -147,9 +146,7 @@ impl<S> DisperserClient<S> {
                 timestamp: payment.timestamp,
                 cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
             }
-            // .hash()?,
-            .hash()
-            .unwrap(),
+            .hash()?,
         };
 
         let blob_key = BlobKey::compute_blob_key(&blob_header)?;

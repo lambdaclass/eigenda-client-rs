@@ -2,11 +2,11 @@ use alloy::{
     primitives::{Address, Bytes},
     providers::{Provider, ProviderBuilder, RootProvider},
 };
-use rust_eigenda_v2_common::EigenDACert;
+use rust_eigenda_v2_common::{CheckDACertStatus, EigenDACert};
 use url::Url;
 
 use crate::{
-    errors::{CertVerifierError, ConversionError},
+    errors::CertVerifierError,
     generated::contract_bindings::{
         EigenDATypesV1::SecurityThresholds, IEigenDACertVerifier::IEigenDACertVerifierInstance,
         IEigenDACertVerifierBase::IEigenDACertVerifierBaseInstance,
@@ -14,32 +14,6 @@ use crate::{
     },
     utils::SecretUrl,
 };
-
-#[derive(Debug)]
-pub enum CheckDACertStatus {
-    NullError,
-    Success,
-    InvalidInclusionProof,
-    SecurityAssumptionsNotMet,
-    BlobQuorumsNotSubset,
-    RequiredQuorumsNotSubset,
-}
-
-impl TryFrom<u8> for CheckDACertStatus {
-    type Error = ConversionError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(CheckDACertStatus::NullError),
-            1 => Ok(CheckDACertStatus::Success),
-            2 => Ok(CheckDACertStatus::InvalidInclusionProof),
-            3 => Ok(CheckDACertStatus::SecurityAssumptionsNotMet),
-            4 => Ok(CheckDACertStatus::BlobQuorumsNotSubset),
-            5 => Ok(CheckDACertStatus::RequiredQuorumsNotSubset),
-            _ => Err(ConversionError::InvalidCheckDACertStatus(value)),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 /// Provides methods for interacting with the EigenDA CertVerifier contract.
@@ -158,7 +132,7 @@ impl CertVerifier {
             .await
             .map_err(|_| CertVerifierError::Contract("check_da_cert".to_string()))?;
 
-        let status = CheckDACertStatus::try_from(res)?;
+        let status = CheckDACertStatus::try_from(res).unwrap();
         match status {
             CheckDACertStatus::NullError => {
                 return Err(CertVerifierError::VerificationFailedNullError);

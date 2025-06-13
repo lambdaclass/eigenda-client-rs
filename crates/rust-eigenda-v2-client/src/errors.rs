@@ -51,8 +51,6 @@ pub enum ConversionError {
     U256Conversion(String),
     #[error("Failed to parse attestation: {0}")]
     Attestation(String),
-    #[error("Failed to parse checkDACert Status: {0}")]
-    InvalidCheckDACertStatus(u8),
     #[error("Failed to parse address: {0}")]
     Address(String),
 }

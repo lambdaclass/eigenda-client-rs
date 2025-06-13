@@ -1,8 +1,10 @@
 mod blob;
+mod cert_verifier;
 mod encoded_payload;
 mod payload;
 
 pub use blob::Blob;
+pub use cert_verifier::CheckDACertStatus;
 pub use encoded_payload::EncodedPayload;
 pub use payload::Payload;
 

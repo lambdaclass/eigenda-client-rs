@@ -9,8 +9,6 @@ use crate::generated::disperser::v2::{
     Attestation as ProtoAttestation, BlobStatusReply, SignedBatch as SignedBatchProto,
 };
 
-// use crate::commitment_utils::g1_commitment_from_bytes;
-
 use crate::generated::{
     common::{
         v2::{
@@ -22,103 +20,6 @@ use crate::generated::{
     disperser::v2::BlobInclusionInfo as ProtoBlobInclusionInfo,
 };
 
-// use rust_eigenda_v2_common::{
-//     g2_commitment_from_bytes, BatchHeaderV2, BlobCertificate, BlobCommitments, BlobHeader,
-//     BlobInclusionInfo, EigenDACert, NonSignerStakesAndSignature,
-// };
-
-// sol! {
-//     struct G1PointContract {
-//         uint256 X;
-//         uint256 Y;
-//     }
-
-//     struct G2PointContract {
-//         uint256[2] X;
-//         uint256[2] Y;
-//     }
-
-//     struct BlobInclusionInfoContract {
-//         BlobCertificateContract blobCertificate;
-//         uint32 blobIndex;
-//         bytes inclusionProof;
-//     }
-
-//     struct BlobCertificateContract {
-//         BlobHeaderV2Contract blobHeader;
-//         bytes signature;
-//         uint32[] relayKeys;
-//     }
-
-//     struct BlobHeaderV2Contract {
-//         uint16 version;
-//         bytes quorumNumbers;
-//         BlobCommitmentContract commitment;
-//         bytes32 paymentHeaderHash;
-//     }
-
-//     struct BlobCommitmentContract {
-//         G1PointContract commitment;
-//         G2PointContract lengthCommitment;
-//         G2PointContract lengthProof;
-//         uint32 length;
-//     }
-
-//     struct BatchHeaderV2Contract {
-//         bytes32 batchRoot;
-//         uint32 referenceBlockNumber;
-//     }
-
-//     struct NonSignerStakesAndSignatureContract {
-//         uint32[] nonSignerQuorumBitmapIndices;
-//         G1PointContract[] nonSignerPubkeys;
-//         G1PointContract[] quorumApks;
-//         G2PointContract apkG2;
-//         G1PointContract sigma;
-//         uint32[] quorumApkIndices;
-//         uint32[] totalStakeIndices;
-//         uint32[][] nonSignerStakeIndices;
-//     }
-
-//     struct EigenDACertV3Contract {
-//         BatchHeaderV2Contract batchHeader;
-//         BlobInclusionInfoContract blobInclusionInfo;
-//         NonSignerStakesAndSignatureContract nonSignerStakesAndSignature;
-//         bytes signedQuorumNumbers;
-//     }
-// }
-
-// #[derive(Debug, PartialEq, Clone)]
-// /// PaymentHeader represents the header information for a blob
-// pub struct PaymentHeader {
-//     /// account_id is the ETH account address for the payer
-//     pub account_id: String,
-//     /// Timestamp represents the nanosecond of the dispersal request creation
-//     pub timestamp: i64,
-//     /// cumulative_payment represents the total amount of payment (in wei) made by the user up to this point
-//     pub cumulative_payment: Vec<u8>,
-// }
-
-// impl PaymentHeader {
-//     pub fn hash(&self) -> Result<[u8; 32], ConversionError> {
-//         let cumulative_payment = U256::from(self.cumulative_payment.as_slice());
-//         let token = Token::Tuple(vec![
-//             Token::String(self.account_id.clone()),
-//             Token::Int(self.timestamp.into()),
-//             Token::Uint(cumulative_payment),
-//         ]);
-
-//         let encoded = ethabi::encode(&[token]);
-
-//         let mut hasher = Keccak::v256();
-//         hasher.update(&encoded);
-//         let mut hash = [0u8; 32];
-//         hasher.finalize(&mut hash);
-
-//         Ok(hash)
-//     }
-// }
-
 impl From<ProtoPaymentHeader> for PaymentHeader {
     fn from(value: ProtoPaymentHeader) -> Self {
         PaymentHeader {
@@ -128,23 +29,6 @@ impl From<ProtoPaymentHeader> for PaymentHeader {
         }
     }
 }
-
-// impl TryFrom<BlobCommitments> for BlobCommitmentContract {
-//     type Error = ConversionError;
-//     fn try_from(value: BlobCommitments) -> Result<Self, Self::Error> {
-//         let commitment = g1_contract_point_from_g1_affine(&value.commitment)?;
-//         let length_commitment = g2_contract_point_from_g2_affine(&value.length_commitment)?;
-//         let length_proof = g2_contract_point_from_g2_affine(&value.length_proof)?;
-//         let length = value.length;
-
-//         Ok(Self {
-//             commitment,
-//             lengthCommitment: length_commitment,
-//             lengthProof: length_proof,
-//             length,
-//         })
-//     }
-// }
 
 impl TryFrom<ProtoBlobCommitment> for BlobCommitments {
     type Error = ConversionError;
@@ -163,19 +47,6 @@ impl TryFrom<ProtoBlobCommitment> for BlobCommitments {
         })
     }
 }
-
-// impl TryFrom<BlobHeader> for BlobHeaderV2Contract {
-//     type Error = ConversionError;
-
-//     fn try_from(value: BlobHeader) -> Result<Self, Self::Error> {
-//         Ok(Self {
-//             version: value.version,
-//             quorumNumbers: value.quorum_numbers.into(),
-//             commitment: value.commitment.clone().try_into()?,
-//             paymentHeaderHash: value.payment_header_hash.into(),
-//         })
-//     }
-// }
 
 impl TryFrom<ProtoBlobHeader> for BlobHeader {
     type Error = ConversionError;
@@ -216,18 +87,6 @@ impl TryFrom<ProtoBlobHeader> for BlobHeader {
     }
 }
 
-// impl TryFrom<BlobCertificate> for BlobCertificateContract {
-//     type Error = ConversionError;
-
-//     fn try_from(value: BlobCertificate) -> Result<Self, Self::Error> {
-//         Ok(Self {
-//             blobHeader: value.blob_header.try_into()?,
-//             signature: value.signature.into(),
-//             relayKeys: value.relay_keys,
-//         })
-//     }
-// }
-
 impl TryFrom<ProtoBlobCertificate> for BlobCertificate {
     type Error = ConversionError;
 
@@ -241,18 +100,6 @@ impl TryFrom<ProtoBlobCertificate> for BlobCertificate {
         })
     }
 }
-
-// impl TryFrom<BlobInclusionInfo> for BlobInclusionInfoContract {
-//     type Error = ConversionError;
-
-//     fn try_from(value: BlobInclusionInfo) -> Result<Self, Self::Error> {
-//         Ok(Self {
-//             blobCertificate: value.blob_certificate.try_into()?,
-//             blobIndex: value.blob_index,
-//             inclusionProof: value.inclusion_proof.clone().into(),
-//         })
-//     }
-// }
 
 impl TryFrom<ProtoBlobInclusionInfo> for BlobInclusionInfo {
     type Error = ConversionError;
@@ -268,16 +115,6 @@ impl TryFrom<ProtoBlobInclusionInfo> for BlobInclusionInfo {
     }
 }
 
-// #[derive(Debug, PartialEq, Clone)]
-// pub struct Attestation {
-//     pub non_signer_pubkeys: Vec<G1Affine>,
-//     pub quorum_apks: Vec<G1Affine>,
-//     pub sigma: G1Affine,
-//     pub apk_g2: G2Affine,
-//     pub quorum_numbers: Vec<u32>,
-// }
-
-/// SignedBatch is a batch of blobs with a signature.
 pub struct SignedBatch {
     pub header: BatchHeaderV2,
     pub attestation: Attestation,
@@ -317,15 +154,6 @@ impl TryFrom<SignedBatchProto> for SignedBatch {
     }
 }
 
-// impl From<BatchHeaderV2> for BatchHeaderV2Contract {
-//     fn from(value: BatchHeaderV2) -> Self {
-//         Self {
-//             batchRoot: value.batch_root.into(),
-//             referenceBlockNumber: value.reference_block_number,
-//         }
-//     }
-// }
-
 impl TryFrom<ProtoBatchHeader> for BatchHeaderV2 {
     type Error = ConversionError;
 
@@ -351,35 +179,6 @@ impl TryFrom<ProtoBatchHeader> for BatchHeaderV2 {
         })
     }
 }
-
-// impl TryFrom<NonSignerStakesAndSignature> for NonSignerStakesAndSignatureContract {
-//     type Error = ConversionError;
-
-//     fn try_from(value: NonSignerStakesAndSignature) -> Result<Self, Self::Error> {
-//         let non_signer_pubkeys: Vec<G1PointContract> = value
-//             .non_signer_pubkeys
-//             .iter()
-//             .map(g1_contract_point_from_g1_affine)
-//             .collect::<Result<Vec<_>, _>>()?;
-
-//         let quorum_apks = value
-//             .quorum_apks
-//             .iter()
-//             .map(g1_contract_point_from_g1_affine)
-//             .collect::<Result<Vec<_>, _>>()?;
-
-//         Ok(Self {
-//             nonSignerQuorumBitmapIndices: value.non_signer_quorum_bitmap_indices.clone(),
-//             nonSignerPubkeys: non_signer_pubkeys,
-//             quorumApks: quorum_apks,
-//             apkG2: g2_contract_point_from_g2_affine(&value.apk_g2)?,
-//             sigma: g1_contract_point_from_g1_affine(&value.sigma)?,
-//             quorumApkIndices: value.quorum_apk_indices.clone(),
-//             totalStakeIndices: value.total_stake_indices.clone(),
-//             nonSignerStakeIndices: value.non_signer_stake_indices.clone(),
-//         })
-//     }
-// }
 
 impl TryFrom<ProtoAttestation> for Attestation {
     type Error = ConversionError;

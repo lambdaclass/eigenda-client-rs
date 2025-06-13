@@ -6,7 +6,6 @@ use rust_eigenda_v2_common::EigenDACert;
 use url::Url;
 
 use crate::{
-    core::eigenda_cert::eigenda_cert_to_abi_encoded,
     errors::{CertVerifierError, ConversionError},
     generated::contract_bindings::{
         EigenDATypesV1::SecurityThresholds, IEigenDACertVerifier::IEigenDACertVerifierInstance,
@@ -147,7 +146,9 @@ impl CertVerifier {
     /// This method returns an empty Result if the cert is successfully verified. Otherwise, it returns a [`CertVerifierError`].
     pub async fn check_da_cert(&self, eigenda_cert: &EigenDACert) -> Result<(), CertVerifierError> {
         let reference_block_number = eigenda_cert.batch_header.reference_block_number;
-        let abi_encoded_cert: Vec<u8> = eigenda_cert_to_abi_encoded(eigenda_cert)?;
+        // let abi_encoded_cert: Vec<u8> = eigenda_cert_to_abi_encoded(eigenda_cert)?;
+        // let abi_encoded_cert: Vec<u8> = eigenda_cert.to_abi_encoded()?;
+        let abi_encoded_cert: Vec<u8> = eigenda_cert.to_abi_encoded().unwrap();
         let cert_verifier_base_contract = self
             .get_cert_verifier_base_contract(reference_block_number)
             .await?;

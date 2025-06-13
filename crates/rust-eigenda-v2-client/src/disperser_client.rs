@@ -5,12 +5,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use alloy::primitives::Address;
 use hex::ToHex;
 use rust_eigenda_signers::{Message, Sign};
-use rust_eigenda_v2_common::{BlobCommitments, BlobHeader};
+use rust_eigenda_v2_common::{BlobCommitments, BlobHeader, PaymentHeader};
 use tokio::sync::Mutex;
 use tonic::transport::{Channel, ClientTlsConfig};
 
 use crate::accountant::Accountant;
-use crate::core::eigenda_cert::PaymentHeader;
 use crate::core::{BlobKey, OnDemandPayment, PaymentStateRequest, ReservedPayment};
 
 use crate::errors::DisperseError;
@@ -126,7 +125,8 @@ impl<S> DisperserClient<S> {
         let Some(blob_commitments) = blob_commitment_reply.blob_commitment else {
             return Err(DisperseError::EmptyBlobCommitment);
         };
-        let core_blob_commitments: BlobCommitments = blob_commitments.clone().try_into()?;
+        // let core_blob_commitments: BlobCommitments = blob_commitments.clone().try_into()?;
+        let core_blob_commitments: BlobCommitments = blob_commitments.clone().try_into().unwrap();
         if core_blob_commitments.length != symbol_length as u32 {
             return Err(DisperseError::CommitmentLengthMismatch(
                 core_blob_commitments.length,
@@ -147,7 +147,9 @@ impl<S> DisperserClient<S> {
                 timestamp: payment.timestamp,
                 cumulative_payment: payment.cumulative_payment.to_signed_bytes_be(),
             }
-            .hash()?,
+            // .hash()?,
+            .hash()
+            .unwrap(),
         };
 
         let blob_key = BlobKey::compute_blob_key(&blob_header)?;

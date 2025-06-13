@@ -1,6 +1,6 @@
 use crate::ConversionError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CheckDACertStatus {
     NullError,
     Success,

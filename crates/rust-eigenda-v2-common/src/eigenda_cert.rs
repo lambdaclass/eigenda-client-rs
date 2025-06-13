@@ -236,13 +236,13 @@ impl EigenDACert {
     }
 }
 
-use alloy::primitives::U256;
-use alloy::sol_types::SolValue;
+use alloy_primitives::U256;
+use alloy_sol_types::SolValue;
 use ark_ff::{BigInteger, PrimeField};
 use ethabi::Token;
 use tiny_keccak::{Hasher, Keccak};
 
-alloy::sol! {
+alloy_sol_types::sol! {
     struct G1PointContract {
         uint256 X;
         uint256 Y;
